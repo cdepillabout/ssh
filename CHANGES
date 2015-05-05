@@ -1,0 +1,65 @@
+0.3.1 2015/4/27
+
+* Update versions for GHC 7.10
+* Switch from deprecated asn1-data to asn1-encoding
+
+0.3.0.1 2015/4/21
+
+* No functional changes, just retrospectively updating this changelog to
+  reflect the changes in 0.3
+
+0.3 2015/4/21
+
+* SECURITY: actually verify signatures when using public key authentication (!)
+* SECURITY: switch to using modular exponentiation from OpenSSL instead of
+  a home-grown implementation that's vulnerable to timing attacks
+* add a test suite
+
+0.2.13.1 2014/10/8
+
+* changelog fix
+
+0.2.13 2014/10/8
+
+* build with process 1.2.*
+* update project info, maintainer, changelog
+
+0.2.12.2 2014/1/28
+
+* allow cryptohash > 0.10 as well as older versions
+
+0.2.12.1 2013/10/24
+
+* add required upper bound on cryptohash
+
+0.2.12 2013/7/19
+
+* Use crypto-pubkey-types >= 0.2
+* Use asn1-data >= 0.7.1
+
+0.2.11 2013/3/30 Simon Michael
+
+* when a connection is interrupted, close the subprocess's stdin too, otherwise it hangs around
+* update for more recent catch api
+* update project info
+
+0.2.10 2012/7/9 Guillaume Hoffman
+
+* bump asn1-data dependency, seems to fix darcsden build
+* fix building with dependency RSA 1.2
+
+0.2.9 2012/4/11
+
+0.2.8 2012/4/10
+
+0.2.5 2010/12/20
+
+0.2.4 2010/12/19
+
+0.2.3 2010/12/19
+
+0.2.1 2010/12/17
+
+0.1 2010/10/2 Alex Suraci
+
+* first release, extracted from darcsden
