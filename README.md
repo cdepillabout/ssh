@@ -1,3 +1,5 @@
+[![Build Status](https://secure.travis-ci.org/ekmett/lens.svg)](http://travis-ci.org/ekmett/lens)
+
 This a library for implementing your own servers that handle SSH
 requests and authorization, etc. Similar to Python's Twisted Conch
 library. It's used eg by darcsden to provide basic SSH access.
