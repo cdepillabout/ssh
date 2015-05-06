@@ -103,22 +103,27 @@ withTextInTempFile nameTemplate contents action = do
         action
 
 data AuthResult = OK | Error ErrorCode
-   deriving (Show, Eq)
+    deriving (Show, Eq)
 
 authWith :: String -> KeyPair -> IO AuthResult
 authWith publicKeyText privateKeyPair =
-  withTextInTempFile "private" (printKeyPair privateKeyPair) $ \privateKeyFile ->
-    withTextInTempFile "public" publicKeyText $ \publicKeyFile ->
-      withSession "localhost" sshPort $ \session -> do
-        authResult <- try $ publicKeyAuthFile session "testuser" publicKeyFile privateKeyFile ""
-        case authResult of
-            Left e -> return $ Error e
-            Right () -> do
-              channel <- openChannelSession session
-              channelExecute channel "check"
-              checked <- readChannel channel 20
-              when (checked /= pack "checked\r\n") $ fail "incorrect check result"
-              return OK
+    withTextInTempFile "private" (printKeyPair privateKeyPair) $ \privateKeyFile ->
+        withTextInTempFile "public" publicKeyText $ \publicKeyFile ->
+            withSession "localhost" sshPort $ \session -> do
+                authResult <- try $ publicKeyAuthFile session
+                                                      "testuser"
+                                                      publicKeyFile
+                                                      privateKeyFile
+                                                      ""
+                case authResult of
+                    Left e -> return $ Error e
+                    Right () -> do
+                        channel <- openChannelSession session
+                        channelExecute channel "check"
+                        checked <- readChannel channel 20
+                        when (checked /= pack "checked\r\n") $
+                            fail "incorrect check result"
+                        return OK
 
 breakPrivateKey :: KeyPair -> KeyPair
 -- This leaves enough information intact to reconstruct the private key
