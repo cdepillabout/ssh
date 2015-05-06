@@ -12,7 +12,6 @@ import Test.QuickCheck
     (Arbitrary(..), elements, forAll, choose, vectorOf
     )
 
-import Control.Applicative ((<$>))
 import Control.Concurrent (forkIO, killThread)
 import Control.Concurrent.MVar (newEmptyMVar, takeMVar, putMVar)
 import Control.Exception (bracket, try, catchJust, ErrorCall(..), evaluate)
@@ -47,17 +46,17 @@ sshPort :: Num a => a -- used as an Int or a PortNumber
 sshPort = 5032
 
 withOneUserServer :: KeyPair -> PublicKey -> TestTree -> TestTree
-withOneUserServer hostKp acceptedKey test = do
-  withResource
-    (do startedSignal <- newEmptyMVar
-        tid <- forkIO $ SSH.startConfig (config startedSignal)
-        takeMVar startedSignal
-        return tid
-    )
-    killThread
-    (\_ -> test)
-    where
-      config startedSignal =
+withOneUserServer hostKp acceptedKey test =
+    withResource
+        (do startedSignal <- newEmptyMVar
+            tid <- forkIO $ SSH.startConfig (config startedSignal)
+            takeMVar startedSignal
+            return tid
+        )
+        killThread
+        (const test)
+  where
+    config startedSignal =
         SSH.Config
           { SSH.cSession = session
           , SSH.cChannel = channel
@@ -65,49 +64,49 @@ withOneUserServer hostKp acceptedKey test = do
           , SSH.cReadyAction = putMVar startedSignal ()
           }
 
-      session =
+    session =
         SessionConfig
           { scAuthMethods = ["publickey", "password"]
           , scAuthorize = sshAuthorize
           , scKeyPair = hostKp
           }
 
-      channel =
+    channel =
         ChannelConfig
           { ccRequestHandler = channelRequest
           }
 
-      sshAuthorize (PublicKey "testuser" k) = return (k == acceptedKey)
-      sshAuthorize _ = return False
+    sshAuthorize (PublicKey "testuser" k) = return (k == acceptedKey)
+    sshAuthorize _ = return False
 
-      channelRequest wr (Execute "check") = do
+    channelRequest wr (Execute "check") = do
         channelMessage "checked"
         when wr channelSuccess
         channelDone
 
-      channelRequest wr cmd = do
+    channelRequest wr cmd = do
         channelError $ "<" ++ show cmd ++ "> not supported"
         when wr channelFail
 
 withTextInTempFile :: String -> String -> (FilePath -> IO a) -> IO a
 withTextInTempFile nameTemplate contents action = do
-  let tempFolder = "temp"
-  createDirectoryIfMissing False tempFolder
-  bracket
-    (do
-       (f, h) <- openTempFile tempFolder nameTemplate
-       hPutStr h contents
-       hClose h
-       return f
-    )
-    removeFile
-    action
+    let tempFolder = "temp"
+    createDirectoryIfMissing False tempFolder
+    bracket
+        (do
+            (f, h) <- openTempFile tempFolder nameTemplate
+            hPutStr h contents
+            hClose h
+            return f
+        )
+        removeFile
+        action
 
 data AuthResult = OK | Error ErrorCode
    deriving (Show, Eq)
 
 authWith :: String -> KeyPair -> IO AuthResult
-authWith publicKeyText privateKeyPair = do
+authWith publicKeyText privateKeyPair =
   withTextInTempFile "private" (printKeyPair privateKeyPair) $ \privateKeyFile ->
     withTextInTempFile "public" publicKeyText $ \publicKeyFile ->
       withSession "localhost" sshPort $ \session -> do
@@ -166,13 +165,15 @@ singleKeyAuthTests =
         withOneUserServer hostKeyPair (publicKey privateKeyPair) $
           testGroup ("Check auth with " ++ privateKeyPairFile)
           [
-            testCase ("Works") $ do
-              authWith publicKeyFileText privateKeyPair
-                >>= assertBool "should auth with correct private key" . (==OK)
+            testCase "Works" $ do
+              authResult <- authWith publicKeyFileText privateKeyPair
+              assertBool "should auth with correct private key" (OK == authResult)
 
-          , testCase ("Fails with broken private key") $ do
-              authWith publicKeyFileText (breakPrivateKey privateKeyPair)
-                >>= assertBool "shouldn't auth with broken private key" . (==Error PUBLICKEY_UNVERIFIED)
+          , testCase "Fails with broken private key" $ do
+              authResult <- authWith publicKeyFileText
+                                     (breakPrivateKey privateKeyPair)
+              assertBool "shouldn't auth with broken private key"
+                         (Error PUBLICKEY_UNVERIFIED == authResult)
           ]
 
     | privateKeyPairFile <- privateKeyPairFiles
@@ -183,12 +184,12 @@ wrongKeyAuthTest :: TestTree
 wrongKeyAuthTest =
   withOneUserServer hostKeyPair (publicKey rightPrivateKeyPair) $
   testCase "Check auth failure with wrong key" $ do
-      authWith wrongPublicKeyFileText wrongPrivateKeyPair
-        >>= assertBool "shouldn't auth with wrong private key" . (==Error AUTHENTICATION_FAILED)
+      authResult <- authWith wrongPublicKeyFileText wrongPrivateKeyPair
+      assertBool "shouldn't auth with wrong private key"
+                 (Error AUTHENTICATION_FAILED == authResult)
   where
     rightPrivateKeyPair = getClientPrivateKeyPair "id_rsa_test"
     wrongPrivateKeyPair = getClientPrivateKeyPair "id_rsa_test2"
-
     wrongPublicKeyFileText = getClientPublicKeyFileText "id_rsa_test2"
 
 instance Arbitrary LBS.ByteString where
