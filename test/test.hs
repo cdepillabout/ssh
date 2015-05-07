@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Main where
@@ -11,6 +12,10 @@ import Test.HUnit (assertBool)
 import Test.QuickCheck
     (Arbitrary(..), elements, forAll, choose, vectorOf
     )
+
+#if __GLASGOW_HASKELL__ < 710
+import Control.Applicative
+#endif
 
 import Control.Concurrent (forkIO, killThread)
 import Control.Concurrent.MVar (newEmptyMVar, takeMVar, putMVar)

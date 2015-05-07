@@ -1,10 +1,17 @@
-{-# LANGUAGE TemplateHaskell, TupleSections #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TupleSections #-}
+
 module EmbedTree ( Entry(..)
                  , getFile
                  , getDirectory
                  , getEntry
                  , embedTree
                  ) where
+
+#if __GLASGOW_HASKELL__ < 710
+import Control.Applicative
+#endif
 
 import qualified Data.Map as Map
 import Data.Map (Map)
@@ -14,8 +21,6 @@ import Instances.TH.Lift ()
 
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax
-
-import PseudoMacros
 
 import System.Directory
   (doesFileExist, doesDirectoryExist
@@ -82,5 +87,5 @@ readTree path = do
 -- source directory.
 embedTree :: FilePath -> ExpQ
 embedTree relPath = do
-    t <- runIO (readTree (takeDirectory $__FILE__ </> relPath))
+    t <- runIO (readTree (takeDirectory __FILE__ </> relPath))
     [|t|]
