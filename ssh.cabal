@@ -16,7 +16,7 @@ category:            Network
 build-type:          Simple
 cabal-version:       >= 1.10
 stability:           Unstable
-tested-with:         GHC==7.8.2
+tested-with:         GHC == 7.6.3, GHC == 7.8.4, GHC == 7.10.1
 extra-source-files:  CHANGES,
                      README,
                      test/keys/host,
@@ -55,10 +55,8 @@ library
   other-modules:    SSH.Debug,
                     SSH.Util
 
-  ghc-options:      -Wall -fno-warn-unused-do-bind
-  cc-options:       -fPIC
+  ghc-options:      -Wall -O2
   other-extensions: TemplateHaskell
-  default-extensions: CPP, TemplateHaskell
   default-language: Haskell2010
 
   build-depends:    asn1-encoding >= 0.8,
@@ -91,9 +89,7 @@ test-suite ssh-test
   other-modules:    EmbedTree
 
   ghc-options:      -Wall -threaded
-  cc-options:       -fPIC
   other-extensions: TemplateHaskell
-  default-extensions: CPP, TemplateHaskell
   default-language: Haskell2010
 
   build-depends:
