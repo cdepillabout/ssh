@@ -5,7 +5,7 @@ language: c
 # Or https://github.com/jgm/pandoc/blob/master/.travis.yml
 
 # Ensures that sudo is disabled, so that containerized builds are allowed
-sudo: false
+sudo: true
 
 # The following enables several GHC versions to be tested.
 # Often it's enough to test only against the last release
@@ -96,4 +96,4 @@ script:
     # - cabal sdist
     # check that the generated source-distribution can be built & installed
     # - SRC_TGZ=$(cabal info . | awk '{print $2;exit}').tar.gz &&
-    #   (cd dist && cabal install --force-reinstalls "$SRC_TGZ")
+    #     (cd dist && cabal install --force-reinstalls "$SRC_TGZ")

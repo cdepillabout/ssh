@@ -111,29 +111,29 @@ waitLoop sc cc s = do
             then return ()
             else do
 
-        -- get the version response
-        theirVersion <- hGetLine handle >>= return . takeWhile (/= '\r')
+                -- get the version response
+                theirVersion <- hGetLine handle >>= return . takeWhile (/= '\r')
 
-        cookie <- fmap (LBS.pack . map fromIntegral) $
-            replicateM 16 (randomRIO (0, 255 :: Int))
+                cookie <- fmap (LBS.pack . map fromIntegral) $
+                    replicateM 16 (randomRIO (0, 255 :: Int))
 
-        let ourKEXInit = doPacket $ pKEXInit cookie
+                let ourKEXInit = doPacket $ pKEXInit cookie
 
-        out <- newChan
-        forkIO (sender out (NoKeys handle 0))
+                out <- newChan
+                forkIO (sender out (NoKeys handle 0))
 
-        evalStateT
-            (send (Send ourKEXInit) >> readLoop)
-            (Initial
-                { ssConfig = sc
-                , ssChannelConfig = cc
-                , ssThem = handle
-                , ssSend = writeChan out
-                , ssPayload = LBS.empty
-                , ssTheirVersion = theirVersion
-                , ssOurKEXInit = ourKEXInit
-                , ssInSeq = 0
-                })
+                evalStateT
+                    (send (Send ourKEXInit) >> readLoop)
+                    (Initial
+                        { ssConfig = sc
+                        , ssChannelConfig = cc
+                        , ssThem = handle
+                        , ssSend = writeChan out
+                        , ssPayload = LBS.empty
+                        , ssTheirVersion = theirVersion
+                        , ssOurKEXInit = ourKEXInit
+                        , ssInSeq = 0
+                        })
 
     waitLoop sc cc s
   where
@@ -166,28 +166,28 @@ readLoop = do
         then shutdownChannels
         else do
 
-    getPacket
+            getPacket
 
-    msg <- net readByte
+            msg <- net readByte
 
-    if msg == 1 || msg == 97 -- disconnect || close
-        then shutdownChannels
-        else do
+            if msg == 1 || msg == 97 -- disconnect || close
+                then shutdownChannels
+                else do
 
-    case msg of
-        5 -> serviceRequest
-        20 -> kexInit
-        21 -> newKeys
-        30 -> kexDHInit
-        50 -> userAuthRequest
-        90 -> channelOpen
-        94 -> dataReceived
-        96 -> eofReceived
-        98 -> channelRequest
-        u -> dump $ "unknown message: " ++ show u
+                    case msg of
+                        5 -> serviceRequest
+                        20 -> kexInit
+                        21 -> newKeys
+                        30 -> kexDHInit
+                        50 -> userAuthRequest
+                        90 -> channelOpen
+                        94 -> dataReceived
+                        96 -> eofReceived
+                        98 -> channelRequest
+                        u -> dump $ "unknown message: " ++ show u
 
-    modify (\s -> s { ssInSeq = ssInSeq s + 1 })
-    readLoop
+                    modify (\s -> s { ssInSeq = ssInSeq s + 1 })
+                    readLoop
   where
     shutdownChannels = do
         s <- get
