@@ -1,3 +1,8 @@
+# This is not working for the same reason .travis.yml is not working.
+# GHC 7.8+ is not able to link EmbedTree.hs (because it is using
+# Template Haskell?).
+# For now, we only test GHC-7.6, using the other file.
+
 # NB: don't set `language: haskell` here
 language: c
 
