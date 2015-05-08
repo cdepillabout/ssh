@@ -1,0 +1,99 @@
+# NB: don't set `language: haskell` here
+language: c
+
+# See also https://github.com/hvr/multi-ghc-travis for more information
+# Or https://github.com/jgm/pandoc/blob/master/.travis.yml
+
+# Ensures that sudo is disabled, so that containerized builds are allowed
+sudo: true
+
+# The following enables several GHC versions to be tested.
+# Often it's enough to test only against the last release
+# in a major GHC version. Feel free to omit lines listings
+# versions you don't need/want testing for.
+matrix:
+    include:
+        # It doesn't look like it would be too easy to get this working on ghc-7.4.
+        # - env: ALEXVER=3.1.4 CABALVER=1.16 GHCVER=7.4.2 HAPPYVER=1.19.5 GHCOPTS="-Werror" JOPTS=""
+        #   addons:
+        #       apt:
+        #           packages:
+        #               - alex-3.1.4
+        #               - cabal-install-1.16
+        #               - ghc-7.4.2
+        #               - happy-1.19.5
+        #               - libssh2-1-dev
+        #               - libssh2-1
+        #           sources:
+        #               - hvr-ghc
+
+        - env: GHCVER=7.6.3 CABALVER=1.18 GHCOPTS="-Werror" ALEXVER=3.1.4 HAPPYVER=1.19.5 JOPTS="-j2"
+          addons:
+              apt:
+                  packages:
+                      - alex-3.1.4
+                      - cabal-install-1.18
+                      - ghc-7.6.3
+                      - happy-1.19.5
+                      - libssh2-1-dev
+                      - libssh2-1
+                  sources:
+                      - hvr-ghc
+
+        - env: GHCVER=7.8.4 CABALVER=1.18 GHCOPTS="-Werror -fPIC" ALEXVER=3.1.4 HAPPYVER=1.19.5 JOPTS="-j2"
+          addons:
+              apt:
+                  packages:
+                      - alex-3.1.4
+                      - cabal-install-1.18
+                      - ghc-7.8.4
+                      - happy-1.19.5
+                      - libssh2-1-dev
+                      - libssh2-1
+                  sources:
+                      - hvr-ghc
+
+        - env: GHCVER=7.10.1 CABALVER=head GHCOPTS="-Werror" ALEXVER=3.1.4 HAPPYVER=1.19.5 JOPTS="-j2"
+          addons:
+              apt:
+                  packages:
+                      - alex-3.1.4
+                      - cabal-install-head
+                      - ghc-7.10.1
+                      - happy-1.19.5
+                      - libssh2-1-dev
+                      - libssh2-1
+                  sources:
+                      - hvr-ghc
+
+  # - env: CABALVER=head GHCVER=head GHCOPTS="-Werror" JOPTS="-j2"
+  #   addons: {apt: {packages: [cabal-install-head,ghc-head],  sources: [hvr-ghc]}}
+
+# Note: the distinction between `before_install` and `install` is not important.
+before_install:
+    - export PATH=/opt/happy/$HAPPYVER/bin:/opt/alex/$ALEXVER/bin:/opt/cabal/$CABALVER/bin:/opt/ghc/$GHCVER/bin:$PATH
+
+install:
+    - cabal update
+    - cabal install $JOPTS c2hs
+# - git clone https://github.com/jgm/pandoc-types && cd pandoc-types && cabal-1.18 install && cd ..
+    - cabal install $JOPTS --only-dependencies --enable-tests --enable-shared
+
+# Here starts the actual work to be performed for the package under test;
+# any command which exits with a non-zero exit code causes the build to fail.
+script:
+    # -v2 provides useful information for debugging
+    - cabal configure --enable-tests -v2 --enable-shared
+
+    # this builds all libraries and executables (including tests/benchmarks)
+    - cabal build $JOPTS --ghc-options="$GHCOPTS" -v2
+
+    # test and check
+    - cabal test --show-details=always # $JOPTS
+    - cabal check
+
+    # tests that a source-distribution can be generated
+    # - cabal sdist
+    # check that the generated source-distribution can be built & installed
+    # - SRC_TGZ=$(cabal info . | awk '{print $2;exit}').tar.gz &&
+    #     (cd dist && cabal install --force-reinstalls "$SRC_TGZ")
