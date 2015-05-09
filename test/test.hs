@@ -231,7 +231,6 @@ verify key message sig =
       | msg == "signature representative out of range" = Just ()
     sigErrors _ = Nothing
 
-
 signThenVerifyTest :: TestTree
 signThenVerifyTest = testProperty "signatures from sign work with verify" $
   \kp message -> verify (publicKey kp) message $ sign kp message
@@ -257,21 +256,19 @@ randomVerifyTest = testProperty "random signatures fail with verify" $
   \key message -> forAll (vectorOf (actualSignatureLength key) arbitrary) $ \sigBytes ->
     not $ verify key message (LBS.pack sigBytes)
 
-
 allTests :: TestTree
 allTests =
-  testGroup "Tests"
-  [ testGroup "With server"
-    [ singleKeyAuthTests
-    , wrongKeyAuthTest
-    ]
-  , testGroup "Signatures"
-    [ signThenVerifyTest
-    , signThenMutatedVerifyTest
-    , randomVerifyTest
-    ]
-  ]
-
+    testGroup "Tests"
+        [ testGroup "With server"
+            [ singleKeyAuthTests
+            , wrongKeyAuthTest
+            ]
+        , testGroup "Signatures"
+            [ signThenVerifyTest
+            , signThenMutatedVerifyTest
+            , randomVerifyTest
+            ]
+        ]
 
 main :: IO ()
 main = defaultMain allTests
