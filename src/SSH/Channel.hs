@@ -3,7 +3,7 @@ module SSH.Channel where
 
 import Control.Concurrent
 import Control.Exception
-import Control.Monad (when)
+import Control.Monad (void, when)
 import Control.Monad.Trans.State
 import Data.Word
 import System.Exit
@@ -90,7 +90,7 @@ newChannel config csend us them winSize maxPacket user = do
     chan <- newChan
 
     dump ("new channel", winSize, maxPacket)
-    forkIO $ evalStateT (do
+    _ <- forkIO $ evalStateT (do
         sendPacket $ do
             byte 91
             long them
@@ -283,7 +283,7 @@ spawnProcess cmd = do
     s <- get
 
     -- spawn a thread to wait for the process to terminate
-    io . forkIO $ do
+    void . io . forkIO $ do
         -- wait until both are done
         readChan done
         readChan done
@@ -301,8 +301,6 @@ spawnProcess cmd = do
                 long (statusCode exit)
 
             channelDone
-
-    return ()
   where
     statusCode ExitSuccess = 0
     statusCode (ExitFailure n) = fromIntegral n

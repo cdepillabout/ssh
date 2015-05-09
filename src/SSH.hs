@@ -101,7 +101,7 @@ waitLoop sc cc s = do
 
     dump ("got connection from", hostName, port)
 
-    forkIO $ do
+    _ <- forkIO $ do
         -- send SSH server version
         hPutStr handle (version ++ "\r\n")
         hFlush handle
@@ -120,7 +120,7 @@ waitLoop sc cc s = do
                 let ourKEXInit = doPacket $ pKEXInit cookie
 
                 out <- newChan
-                forkIO (sender out (NoKeys handle 0))
+                _ <- forkIO (sender out (NoKeys handle 0))
 
                 evalStateT
                     (send (Send ourKEXInit) >> readLoop)
