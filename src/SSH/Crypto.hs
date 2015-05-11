@@ -1,11 +1,11 @@
 module SSH.Crypto where
 
 import Control.Monad (replicateM)
-import Control.Monad.Trans.State
+import Control.Monad.Trans.State (evalState)
 import Data.ASN1.BinaryEncoding (BER(..), DER(..))
 import Data.ASN1.Encoding (decodeASN1, encodeASN1)
-import Data.ASN1.Stream
-import Data.ASN1.Types
+import Data.ASN1.Stream (getConstructedEnd)
+import Data.ASN1.Types (ASN1(..), ASN1ConstructionType(..))
 import Data.Digest.Pure.SHA (bytestringDigest, sha1)
 import Data.List (isPrefixOf)
 import qualified Codec.Binary.Base64.String as B64
