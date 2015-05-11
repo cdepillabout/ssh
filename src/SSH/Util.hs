@@ -19,18 +19,18 @@ strictLBS :: LBS.ByteString -> BS.ByteString
 strictLBS = BS.concat . LBS.toChunks
 
 powersOf :: Num a => a -> [a]
-powersOf n = 1 : (map (*n) (powersOf n))
+powersOf n = 1 : map (*n) (powersOf n)
 
 toBase :: (Integral a, Num b) => a -> a -> [b]
 toBase x =
    map fromIntegral .
    reverse .
-   map (flip mod x) .
-   takeWhile (/=0) .
-   iterate (flip div x)
+   map (`mod` x) .
+   takeWhile (/= 0) .
+   iterate (`div` x)
 
 toOctets :: (Integral a, Integral b) => a -> b -> [Word8]
-toOctets n x = (toBase n . fromIntegral) x
+toOctets n = toBase n . fromIntegral
 
 fromOctets :: (Integral a, Integral b) => a -> [Word8] -> b
 fromOctets n x =
