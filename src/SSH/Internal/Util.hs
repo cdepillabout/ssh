@@ -9,9 +9,11 @@ import GHC.Base (Int(I#))
 import GHC.Integer.Logarithms (integerLog2#)
 
 
+-- | Convert a 'String' to a lazy 'Data.ByteString.Lazy.ByteString'.
 toLBS :: String -> LBS.ByteString
 toLBS = LBS.pack . map (fromIntegral . fromEnum)
 
+-- | Convert a lazy 'Data.ByteString.Lazy.ByteString' to a 'String'.
 fromLBS :: LBS.ByteString -> String
 fromLBS = map (toEnum . fromIntegral) . LBS.unpack
 
