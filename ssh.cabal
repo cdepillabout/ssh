@@ -87,7 +87,7 @@ test-suite ssh-test
   main-is:          test.hs
 
   other-modules:    EmbedTree
-                  , Test.SSH.Util
+                  , Test.SSH.Internal.Util
                     
 
   ghc-options:      -Wall -threaded

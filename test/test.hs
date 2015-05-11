@@ -44,6 +44,9 @@ import SSH.Session
 
 import EmbedTree
 
+import Test.Util ()
+import Test.SSH.Internal.Util (sshInternalUtilTests)
+
 keysDirectory :: Map String Entry
 keysDirectory = getDirectory $(embedTree "keys")
 
@@ -202,9 +205,6 @@ wrongKeyAuthTest =
     wrongPrivateKeyPair = getClientPrivateKeyPair "id_rsa_test2"
     wrongPublicKeyFileText = getClientPublicKeyFileText "id_rsa_test2"
 
-instance Arbitrary LBS.ByteString where
-  arbitrary = LBS.pack <$> arbitrary
-
 instance Arbitrary KeyPair where
   arbitrary = elements $ map getClientPrivateKeyPair privateKeyPairFiles
 
@@ -268,6 +268,7 @@ allTests =
             , signThenMutatedVerifyTest
             , randomVerifyTest
             ]
+        , sshInternalUtilTests
         ]
 
 main :: IO ()
