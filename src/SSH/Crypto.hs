@@ -17,7 +17,7 @@ import qualified Crypto.Types.PubKey.RSA as RSAKey
 
 import SSH.Packet
 import SSH.NetReader
-import SSH.Util
+import SSH.Internal.Util
 
 data Cipher =
     Cipher

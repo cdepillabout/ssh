@@ -1,5 +1,5 @@
 {-# LANGUAGE MagicHash #-}
-module SSH.Util where
+module SSH.Internal.Util where
 
 import Data.Word (Word8)
 import qualified Data.ByteString as BS

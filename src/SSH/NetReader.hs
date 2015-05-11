@@ -7,7 +7,7 @@ import Data.Word
 import qualified Data.ByteString.Lazy as LBS
 
 import SSH.Packet
-import SSH.Util (fromLBS)
+import SSH.Internal.Util (fromLBS)
 
 
 type NetReader = State LBS.ByteString

@@ -8,7 +8,7 @@ import Data.Digest.Pure.SHA
 import Data.Word
 import qualified Data.ByteString.Lazy as LBS
 
-import SSH.Util
+import SSH.Internal.Util
 
 
 type Packet a = Writer LBS.ByteString a

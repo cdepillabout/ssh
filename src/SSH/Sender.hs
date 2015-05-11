@@ -12,7 +12,7 @@ import qualified Data.ByteString.Lazy as LBS
 import SSH.Debug
 import SSH.Crypto
 import SSH.Packet
-import SSH.Util
+import SSH.Internal.Util
 
 
 data SenderState

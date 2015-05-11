@@ -25,7 +25,7 @@ import SSH.NetReader
 import SSH.Packet
 import SSH.Sender
 import SSH.Session
-import SSH.Util
+import SSH.Internal.Util
 
 
 version :: String

@@ -18,7 +18,7 @@ import SSH.Debug
 import SSH.NetReader
 import SSH.Packet
 import SSH.Sender
-import SSH.Util
+import SSH.Internal.Util
 
 
 type Session = StateT SessionState IO
