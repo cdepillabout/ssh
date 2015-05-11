@@ -46,6 +46,9 @@ i2osp l y =
          z = toOctets (256 :: Integer) y
          unPaddedLen = length z
 
+-- TODO: It would be nice if we could do away with this use of error.
+-- Maybe using something from the following stackoverflow answer?
+-- http://stackoverflow.com/questions/11910143/positive-integer-type
 integerLog2 :: Integer -> Int
 integerLog2 n | n <=0 = error "integerLog2: argument must be positive"
 integerLog2 n = I# (integerLog2# n)
