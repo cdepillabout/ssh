@@ -29,7 +29,23 @@ strictLBS = BS.concat . LBS.toChunks
 powersOf :: Num a => a -> [a]
 powersOf n = 1 : map (*n) (powersOf n)
 
-toBase :: (Integral a, Num b) => a -> a -> [b]
+-- | Converts a number into a different base, and returns it as
+-- a list of decimal numbers.
+--
+-- >>> toBase 2 7
+-- [1,1,1]
+-- >>> toBase 2 14
+-- [1,1,1,0]
+-- >>> toBase 10 30
+-- [3,0]
+-- >>> toBase 50 40
+-- [40]
+--
+-- *TODO* This shouldn't accept a number less than 2 as the first argument.
+-- It should not accept a negative number as the second argument.
+toBase :: (Integral a, Num b) => a    -- ^ base to use
+                              -> a    -- ^ number to convert
+                              -> [b]
 toBase x =
    map fromIntegral .
    reverse .
