@@ -22,6 +22,10 @@ fromLBS = map (toEnum . fromIntegral) . LBS.unpack
 strictLBS :: LBS.ByteString -> BS.ByteString
 strictLBS = BS.concat . LBS.toChunks
 
+-- | Generate a infinite list that contains the powers of a number.
+--
+-- >>> take 6 $ powersOf 3
+-- [1, 3, 9, 27, 81, 216]
 powersOf :: Num a => a -> [a]
 powersOf n = 1 : map (*n) (powersOf n)
 
