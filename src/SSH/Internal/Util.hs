@@ -47,20 +47,19 @@ toBase :: (Integral a, Num b) => a    -- ^ base to use
                               -> a    -- ^ number to convert
                               -> [b]
 toBase x =
-   map fromIntegral .
-   reverse .
-   map (`mod` x) .
-   takeWhile (/= 0) .
-   iterate (`div` x)
+    map fromIntegral .
+        reverse .
+        map (`mod` x) .
+        takeWhile (/= 0) .
+        iterate (`div` x)
 
 toOctets :: (Integral a, Integral b) => a -> b -> [Word8]
 toOctets n = toBase n . fromIntegral
 
 fromOctets :: (Integral a, Integral b) => a -> [Word8] -> b
 fromOctets n x =
-   fromIntegral $
-   sum $
-   zipWith (*) (powersOf n) (reverse (map fromIntegral x))
+    fromIntegral $ sum $
+        zipWith (*) (powersOf n) (reverse (map fromIntegral x))
 
 i2osp :: Integral a => Int -> a -> [Word8]
 i2osp l y =
