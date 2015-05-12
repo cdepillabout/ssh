@@ -17,6 +17,8 @@ toLBS = LBS.pack . map (fromIntegral . fromEnum)
 fromLBS :: LBS.ByteString -> String
 fromLBS = map (toEnum . fromIntegral) . LBS.unpack
 
+-- | Convert a lazy 'Data.ByteString.Lazy.ByteString' to a strict
+-- 'Data.ByteString.ByteString'.
 strictLBS :: LBS.ByteString -> BS.ByteString
 strictLBS = BS.concat . LBS.toChunks
 
