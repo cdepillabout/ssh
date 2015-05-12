@@ -26,6 +26,10 @@ strictLBS = BS.concat . LBS.toChunks
 --
 -- >>> take 6 $ powersOf 3
 -- [1, 3, 9, 27, 81, 216]
+--
+-- *TODO* This should normally be called with an Integer, or something able
+-- to express arbitrarily large numbers.  If not, the numbers in the output
+-- list will wrap around.
 powersOf :: Num a => a -> [a]
 powersOf n = 1 : map (*n) (powersOf n)
 
@@ -56,7 +60,20 @@ toBase x =
 toOctets :: (Integral a, Integral b) => a -> b -> [Word8]
 toOctets n = toBase n . fromIntegral
 
-fromOctets :: (Integral a, Integral b) => a -> [Word8] -> b
+-- | Convert an octet list in an arbitrary base to the original number.
+--
+-- >>> fromOctets 128 [0,0,0,20]
+-- 20
+-- >>> fromOctets 256 [1,20]
+-- 276
+--
+-- *TODO* This function passes the first argument to 'powersOf', so the
+-- note there applies here too.  Also, it doesn't make sense to pass a base
+-- that is smaller than some of the numbers in the octet.  For instance, it
+-- doesn't make sense to write @fromOctets 10 [20, 30, 40]@.
+fromOctets :: (Integral a, Integral b) => a       -- ^ base to use
+                                       -> [Word8] -- ^ octet list
+                                       -> b
 fromOctets n x =
     fromIntegral $ sum $
         zipWith (*) (powersOf n) (reverse (map fromIntegral x))
@@ -78,7 +95,6 @@ fromOctets n x =
 --
 -- *TODO* Passing a negative number as the second argument results in the
 -- method never returning.
---
 i2osp :: Integral a => Int       -- ^ length of octet list
                     -> a         -- ^ 'Integral' to convert
                     -> [Word8]   -- ^ resulting octet list
