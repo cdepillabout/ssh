@@ -7,8 +7,7 @@ import Control.Applicative
 #endif
 
 import qualified Data.ByteString.Char8 as Char8
-import Data.Word (Word8)
-import Test.QuickCheck (Gen, choose, elements, listOf)
+import Test.QuickCheck (choose, elements, listOf)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (testProperty)
 
@@ -50,9 +49,8 @@ toBaseTest = testProperty "toBase can be converted back to original number" $ do
 
 toFromOctetsTest :: TestTree
 toFromOctetsTest = testProperty "(toOctets . fromOctets) x == x" $ do
-    -- base needs to be an integer
     base <- choose (2::Integer, 255)
-    n <- (dropWhile (== 0) <$> listOf (choose (0, (fromIntegral base) - 1))) :: Gen [Word8]
+    n <- dropWhile (== 0) <$> listOf (choose (0, (fromIntegral base) - 1))
     let from = fromOctets base n :: Integer
         to = toOctets base from
     return $ to == n
