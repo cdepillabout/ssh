@@ -1,11 +1,18 @@
+{-# LANGUAGE CPP #-}
+
 module Test.SSH.Internal.Util (sshInternalUtilTests) where
 
-import qualified Data.ByteString.Char8 as Char8 (pack)
-import Test.QuickCheck (choose, elements)
+#if __GLASGOW_HASKELL__ < 710
+import Control.Applicative
+#endif
+
+import qualified Data.ByteString.Char8 as Char8
+import Data.Word (Word8)
+import Test.QuickCheck (Gen, choose, elements, listOf)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (testProperty)
 
-import SSH.Internal.Util (fromLBS, powersOf, strictLBS, toBase, toLBS)
+import SSH.Internal.Util (fromLBS, fromOctets, powersOf, strictLBS, toBase, toLBS, toOctets)
 
 import Test.Util ()
 
@@ -32,15 +39,23 @@ powersOfTest = testProperty "powersOf generates powers of a number" $ do
 
 toBaseTest :: TestTree
 toBaseTest = testProperty "toBase can be converted back to original number" $ do
-    -- n <- (arbitrary :: Gen Integer)
-    n <- choose (0::Integer, 1000)
     base <- choose (2, 1000)
+    n <- choose (0::Integer, 1000)
     let newBase = toBase base n
         revNewBase = reverse newBase
         powersOfBase = powersOf base
         zipped = zipWith (*) powersOfBase revNewBase
         originalN = sum zipped
     return $ originalN == n
+
+toFromOctetsTest :: TestTree
+toFromOctetsTest = testProperty "(toOctets . fromOctets) x == x" $ do
+    -- base needs to be an integer
+    base <- choose (2::Integer, 255)
+    n <- (dropWhile (== 0) <$> listOf (choose (0, (fromIntegral base) - 1))) :: Gen [Word8]
+    let from = fromOctets base n :: Integer
+        to = toOctets base from
+    return $ to == n
 
 sshInternalUtilTests :: TestTree
 sshInternalUtilTests = testGroup "SSH/Util.hs tests"
@@ -49,4 +64,5 @@ sshInternalUtilTests = testGroup "SSH/Util.hs tests"
     , powersOfTest
     , toBaseTest
     , toFromLBSTest
+    , toFromOctetsTest
     ]
