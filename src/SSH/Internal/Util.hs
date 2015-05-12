@@ -61,7 +61,27 @@ fromOctets n x =
     fromIntegral $ sum $
         zipWith (*) (powersOf n) (reverse (map fromIntegral x))
 
-i2osp :: Integral a => Int -> a -> [Word8]
+-- | Convert an 'Integral' to an octet list of a specified length,
+-- padded if it is below that length.  If the resulting octet list is
+-- longer than the specified length, it won't be padded and an error won't
+-- be thrown.
+--
+-- >>> i2osp 4 50
+-- [0,0,0,50]
+-- >>> i2osp 2 512
+-- [2,0]
+-- >>> i2osp 1 4096
+-- [16,0]
+--
+-- This method is similar to the one documented in
+-- <http://tools.ietf.org/html/rfc3447#page-9 rfc3447>.
+--
+-- *TODO* Passing a negative number as the second argument results in the
+-- method never returning.
+--
+i2osp :: Integral a => Int       -- ^ length of octet list
+                    -> a         -- ^ 'Integral' to convert
+                    -> [Word8]   -- ^ resulting octet list
 i2osp l y =
    pad ++ z
       where
