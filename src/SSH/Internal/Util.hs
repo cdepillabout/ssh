@@ -27,7 +27,7 @@ strictLBS = BS.concat . LBS.toChunks
 -- >>> take 6 $ powersOf 3
 -- [1, 3, 9, 27, 81, 216]
 --
--- *TODO* This should normally be called with an Integer, or something able
+-- __TODO__ This should normally be called with an Integer, or something able
 -- to express arbitrarily large numbers.  If not, the numbers in the output
 -- list will wrap around.
 powersOf :: Num a => a -> [a]
@@ -45,7 +45,7 @@ powersOf n = 1 : map (*n) (powersOf n)
 -- >>> toBase 50 40
 -- [40]
 --
--- *TODO* This shouldn't accept a number less than 2 as the first argument.
+-- __TODO__ This shouldn't accept a number less than 2 as the first argument.
 -- It should not accept a negative number as the second argument.
 toBase :: (Integral a, Num b) => a    -- ^ base to use
                               -> a    -- ^ number to convert
@@ -57,6 +57,15 @@ toBase x =
         takeWhile (/= 0) .
         iterate (`div` x)
 
+-- | Convert a number into an octet list with an arbitrary base.
+--
+-- >>> toOctets 256 513
+-- [2, 1]
+-- >>> toOctets 256 4096
+-- [16,0]
+--
+-- __TODO__ It doesn't make sense to pass the base as anything bigger than
+-- 256, because they won't be able to be represented in the output list.
 toOctets :: (Integral a, Integral b) => a -> b -> [Word8]
 toOctets n = toBase n . fromIntegral
 
@@ -67,7 +76,7 @@ toOctets n = toBase n . fromIntegral
 -- >>> fromOctets 256 [1,20]
 -- 276
 --
--- *TODO* This function passes the first argument to 'powersOf', so the
+-- __TODO__ This function passes the first argument to 'powersOf', so the
 -- note there applies here too.  Also, it doesn't make sense to pass a base
 -- that is smaller than some of the numbers in the octet.  For instance, it
 -- doesn't make sense to write @fromOctets 10 [20, 30, 40]@.
@@ -93,7 +102,7 @@ fromOctets n x =
 -- This method is similar to the one documented in
 -- <http://tools.ietf.org/html/rfc3447#page-9 rfc3447>.
 --
--- *TODO* Passing a negative number as the second argument results in the
+-- __TODO__ Passing a negative number as the second argument results in the
 -- method never returning.
 i2osp :: Integral a => Int       -- ^ length of octet list
                     -> a         -- ^ 'Integral' to convert
