@@ -1,0 +1,9 @@
+
+write tests in this order:
+
+1. Packet
+2. NetReader
+3. Crypto
+4. Sender
+5. Channel
+6. Session
