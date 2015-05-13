@@ -10,8 +10,8 @@ description:
 homepage:            http://hub.darcs.net/ganesh/ssh
 license:             BSD3
 license-file:        LICENSE
-author:              Alex Suraci <suraci.alex@gmail.com>
-maintainer:          Ganesh Sittampalam <ganesh@earth.li>
+author:              Dennis Gosnell <cdep.illabout+hackage@gmail.com>
+maintainer:          Dennis Gosnell <cdep.illabout+hackage@gmail.com>
 category:            Network
 build-type:          Simple
 cabal-version:       >= 1.10
