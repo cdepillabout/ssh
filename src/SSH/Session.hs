@@ -16,7 +16,6 @@ import SSH.Channel
 import SSH.Crypto hiding (verify)
 import SSH.Debug
 import SSH.NetReader
-import SSH.Packet
 import SSH.Sender
 import SSH.Internal.Util
 
