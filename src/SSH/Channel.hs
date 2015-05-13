@@ -4,6 +4,7 @@ module SSH.Channel where
 import Control.Concurrent
 import Control.Exception
 import Control.Monad (void, when)
+import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.State
 import Data.Word
 import System.Exit
@@ -69,7 +70,7 @@ data Process =
         }
 
 instance Sender Channel where
-    send m = gets csSend >>= io . ($ m)
+    send m = gets csSend >>= liftIO . ($ m)
 
 
 defaultChannelConfig :: ChannelConfig
@@ -117,7 +118,7 @@ newChannel config csend us them winSize maxPacket user = do
 
 chanLoop :: Chan ChannelMessage -> Channel ()
 chanLoop c = do
-    msg <- io (readChan c)
+    msg <- liftIO (readChan c)
     dump ("got channel message", msg)
 
     chanid <- gets csID
@@ -151,8 +152,8 @@ chanLoop c = do
                 Nothing -> dump ("got unhandled data", chanid)
                 Just (Process _ pin _ _) -> do
                     dump ("redirecting data", chanid, LBS.length datum)
-                    io $ LBS.hPut pin datum
-                    io $ hFlush pin
+                    liftIO $ LBS.hPut pin datum
+                    liftIO $ hFlush pin
 
             chanLoop c
 
@@ -165,7 +166,7 @@ chanLoop c = do
                 Nothing -> dump ("got unhandled eof")
                 Just (Process _ pin _ _) -> do
                     dump ("redirecting eof", chanid)
-                    io $ hClose pin
+                    liftIO $ hClose pin
 
             chanLoop c
 
@@ -174,7 +175,7 @@ chanLoop c = do
             redir <- gets csRedirector
             case redir of
                 Nothing -> return ()
-                Just tid -> io (killThread tid)
+                Just tid -> liftIO (killThread tid)
 
             cproc <- gets csProcess
             case cproc of
@@ -183,7 +184,7 @@ chanLoop c = do
                     -- NOTE: this doesn't necessarily guarantee termination
                     -- see System.Process docs
                     -- nb closing stdin seems necessary, or process won't die
-                    io (hClose pin >> terminateProcess phdl)
+                    liftIO (hClose pin >> terminateProcess phdl)
 
 
 channelError :: String -> Channel ()
@@ -234,24 +235,24 @@ sendChunks n p s = do
 redirectHandle :: Chan () -> Packet () -> Handle -> Channel ()
 redirectHandle f d h = do
     s <- get
-    r <- io . forkIO . evalStateT redirectLoop $ s
+    r <- liftIO . forkIO . evalStateT redirectLoop $ s
     modify $ \cs -> cs { csRedirector = Just r }
   where
     redirectLoop = do
         maxLen <- gets csMaxPacket
 
         dump "reading..."
-        l <- io $ getAvailable
+        l <- liftIO $ getAvailable
         dump ("read data from handle", l)
 
         if not (null l)
             then sendChunks maxLen d l
             else return ()
 
-        done <- io $ hIsEOF h
+        done <- liftIO $ hIsEOF h
         dump ("eof handle?", done)
         if done
-            then io $ writeChan f ()
+            then liftIO $ writeChan f ()
             else redirectLoop
 
     getAvailable :: IO String
@@ -268,28 +269,28 @@ spawnProcess :: IO (Handle, Handle, Handle, ProcessHandle) -> Channel ()
 spawnProcess cmd = do
     target <- gets csTheirID
 
-    (pin, pout, perr, phdl) <- io cmd
+    (pin, pout, perr, phdl) <- liftIO cmd
     modify (\s -> s { csProcess = Just $ Process phdl pin pout perr })
 
     dump ("command spawned")
 
     -- redirect stdout and stderr, using a channel to signal completion
-    done <- io newChan
-    io $ hSetBinaryMode pout True
-    io $ hSetBinaryMode perr True
+    done <- liftIO newChan
+    liftIO $ hSetBinaryMode pout True
+    liftIO $ hSetBinaryMode perr True
     redirectHandle done (byte 94 >> long target) pout
     redirectHandle done (byte 95 >> long target >> long 1) perr
 
     s <- get
 
     -- spawn a thread to wait for the process to terminate
-    void . io . forkIO $ do
+    void . liftIO . forkIO $ do
         -- wait until both are done
         readChan done
         readChan done
 
         dump "done reading output! waiting for process..."
-        exit <- io $ waitForProcess phdl
+        exit <- liftIO $ waitForProcess phdl
         dump ("process exited", exit)
 
         flip evalStateT s $ do

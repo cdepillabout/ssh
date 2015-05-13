@@ -1,6 +1,6 @@
 module SSH.Packet where
 
-import Control.Monad.IO.Class
+import Control.Monad.IO.Class ()
 import Control.Monad.Trans.Writer
 import Data.Binary (encode)
 import Data.Bits ((.&.))
@@ -45,9 +45,6 @@ netString = netLBS . toLBS
 
 netLBS :: LBS.ByteString -> LBS.ByteString
 netLBS bs = encode (fromIntegral (LBS.length bs) :: Word32) `LBS.append` bs
-
-io :: MonadIO m => IO a -> m a
-io = liftIO
 
 unmpint :: LBS.ByteString -> Integer
 unmpint = fromOctets (256 :: Integer) . LBS.unpack

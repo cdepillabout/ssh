@@ -78,7 +78,7 @@ data Authorize
     | PublicKey String PublicKey
 
 instance Sender Session where
-    send m = gets ssSend >>= io . ($ m)
+    send m = gets ssSend >>= liftIO . ($ m)
 
 
 defaultSessionConfig :: SessionConfig

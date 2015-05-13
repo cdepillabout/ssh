@@ -4,6 +4,7 @@ import Control.Concurrent (forkIO)
 import Control.Concurrent.Chan
 import Control.Exception (bracket)
 import Control.Monad (replicateM)
+import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.State
 import Data.Digest.Pure.SHA (bytestringDigest, sha1)
 import Crypto.HMAC
@@ -97,7 +98,7 @@ waitLoop :: SessionConfig -> ChannelConfig -> Socket -> IO ()
 waitLoop sc cc s = do
     (handle, hostName, port) <- accept s
 
-    io $ hSetBinaryMode handle True
+    liftIO $ hSetBinaryMode handle True
 
     dump ("got connection from", hostName, port)
 
@@ -161,7 +162,7 @@ waitLoop sc cc s = do
 
 readLoop :: Session ()
 readLoop = do
-    done <- gets ssThem >>= io . hIsEOF
+    done <- gets ssThem >>= liftIO . hIsEOF
     if done
         then shutdownChannels
         else do
@@ -193,10 +194,10 @@ readLoop = do
         s <- get
         case s of
             Final { ssChannels = cs } ->
-                mapM_ (io . flip writeChan Interrupt) (M.elems cs)
+                mapM_ (liftIO . flip writeChan Interrupt) (M.elems cs)
             _ -> return ()
 
-        io $ ssSend s Stop
+        liftIO $ ssSend s Stop
 
 kexInit :: Session ()
 kexInit = do
@@ -258,7 +259,7 @@ kexDHInit = do
     dump ("KEXDH_INIT", e)
 
    -- our private number
-    y <- io $ randIntegerOneToNMinusOne ((safePrime - 1) `div` 2) -- q?
+    y <- liftIO $ randIntegerOneToNMinusOne ((safePrime - 1) `div` 2) -- q?
 
     let f = modexp generator y safePrime
         k = modexp e y safePrime
@@ -309,7 +310,7 @@ kexDHInit = do
 
 
 
-    signed <- io $ sign keyPair d
+    signed <- liftIO $ sign keyPair d
     let reply = doPacket (kexDHReply f signed pub)
     dump ("KEXDH_REPLY", reply)
 
@@ -392,7 +393,7 @@ userAuthRequest = do
                                byte 1 -- TRUE
                                byteString name
                                byteString key
-                     ok <- io $ verify pkey message sig
+                     ok <- liftIO $ verify pkey message sig
                      if ok then authorized else authfailed
               (True, False) -> sendPacket $ userAuthPKOK name key
 
@@ -433,7 +434,7 @@ channelOpen = do
         c <- gets ssChannelConfig
         s <- gets ssSend
         Just u <- gets ssUser
-        io $ newChannel c s us them windowSize maxPacketLength u
+        liftIO $ newChannel c s us them windowSize maxPacketLength u
 
     modify (\s -> s
         { ssChannels = M.insert us chan (ssChannels s) })
@@ -444,7 +445,7 @@ channelRequest = do
     typ <- net readLBS
     wantReply <- net readBool
 
-    let sendRequest = io . writeChan chan . Request wantReply
+    let sendRequest = liftIO . writeChan chan . Request wantReply
 
     case fromLBS typ of
         "pty-req" -> do
@@ -511,11 +512,11 @@ dataReceived = do
     dump "got data"
     chan <- net readULong >>= getChannel
     msg <- net readLBS
-    io $ writeChan chan (Data msg)
+    liftIO $ writeChan chan (Data msg)
     dump "data processed"
 
 
 eofReceived :: Session ()
 eofReceived = do
     chan <- net readULong >>= getChannel
-    io $ writeChan chan EOF
+    liftIO $ writeChan chan EOF
