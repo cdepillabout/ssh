@@ -1,4 +1,17 @@
 {-# LANGUAGE MagicHash #-}
+
+{-|
+Module      : SSH.Internal.Util
+Description : Short description
+Copyright   : (c) Alex Suraci, 2010
+                  Dennis Gosnell, 2015
+License     : BSD3
+Maintainer  : Dennis Gosnell <cdep.illabout+hackage@gmail.com>
+Stability   : experimental
+
+Helper methods for the "SSH" module.
+-}
+
 module SSH.Internal.Util where
 
 import Data.Word (Word8)
