@@ -49,15 +49,24 @@ toBaseTest = testProperty "toBase can be converted back to original number" $ do
 
 toFromOctetsTest :: TestTree
 toFromOctetsTest = testProperty "(toOctets . fromOctets) x == x" $ do
-    base <- choose (2::Integer, 255)
+    base <- choose (2::Integer, 256)
     n <- dropWhile (== 0) <$> listOf (choose (0, (fromIntegral base) - 1))
     let from = fromOctets base n :: Integer
         to = toOctets base from
     return $ to == n
 
+fromToOctetsTest :: TestTree
+fromToOctetsTest = testProperty "(fromOctets . toOctets) x == x" $ do
+    base <- choose (2::Integer, 256)
+    n <- choose (0, 100000000000000)
+    let to = toOctets base n
+        from = fromOctets base to :: Integer
+    return $ from == n
+
 sshInternalUtilTests :: TestTree
 sshInternalUtilTests = testGroup "SSH/Util.hs tests"
     [ fromToLBSTest
+    , fromToOctetsTest
     , strictLBSTest
     , powersOfTest
     , toBaseTest
