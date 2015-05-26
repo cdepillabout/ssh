@@ -13,3 +13,6 @@ cabal.sandbox.config
 *.prof
 *.aux
 *.hp
+
+# tix files from hpc
+*.tix
