@@ -6,12 +6,9 @@ module Main where
 import Test.Tasty
     (TestTree, defaultMain, testGroup, withResource
     )
-import Test.Tasty.HUnit (testCase)
-import Test.Tasty.QuickCheck (testProperty)
-import Test.HUnit (assertBool)
-import Test.QuickCheck
-    (Arbitrary(..), elements, forAll, choose, vectorOf
-    )
+import Test.Tasty.HUnit (assertBool, testCase)
+import Test.Tasty.QuickCheck
+    (Arbitrary(..), choose, elements, forAll, testProperty, vectorOf)
 
 #if __GLASGOW_HASKELL__ < 710
 import Control.Applicative

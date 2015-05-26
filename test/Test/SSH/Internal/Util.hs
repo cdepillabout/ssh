@@ -7,11 +7,11 @@ import Control.Applicative
 #endif
 
 import qualified Data.ByteString.Char8 as Char8
-import Test.QuickCheck (choose, elements, listOf)
 import Test.Tasty (TestTree, testGroup)
-import Test.Tasty.QuickCheck (testProperty)
+import Test.Tasty.QuickCheck (choose, elements, listOf, testProperty)
 
-import SSH.Internal.Util (fromLBS, fromOctets, powersOf, strictLBS, toBase, toLBS, toOctets)
+import SSH.Internal.Util
+    (fromLBS, fromOctets, powersOf, strictLBS, toBase, toLBS, toOctets)
 
 import Test.Util (ArbitraryLazyByteString(..))
 

@@ -7,11 +7,9 @@ import Control.Applicative
 #endif
 
 import qualified Data.ByteString.Char8 as Char8
-import Test.HUnit ((@?=), assertBool)
-import Test.QuickCheck (choose, elements, listOf)
 import Test.Tasty (TestTree, testGroup)
-import Test.Tasty.HUnit (testCase)
-import Test.Tasty.QuickCheck (testProperty)
+import Test.Tasty.HUnit ((@?=), assertBool, testCase)
+import Test.Tasty.QuickCheck (choose, elements, listOf, testProperty)
 
 import SSH.Packet (byte, long, packetLength)
 
