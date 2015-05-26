@@ -9,51 +9,102 @@ import qualified Data.ByteString.Lazy as LBS
 
 import SSH.Internal.Util
 
-
+-- | A convenience wrapper around a 'Writer' holding a 'LBS.ByteString'.
 type Packet a = Writer LBS.ByteString a
 
-byte :: Word8 -> Packet ()
-byte = tell . encode
-
-long :: Word32 -> Packet ()
-long = tell . encode
-
-integer :: Integer -> Packet ()
-integer = tell . mpint
-
-byteString :: LBS.ByteString -> Packet ()
-byteString = tell . netLBS
-
-string :: String -> Packet ()
-string = byteString . toLBS
-
-raw :: LBS.ByteString -> Packet ()
-raw = tell
-
-rawString :: String -> Packet ()
-rawString = tell . toLBS
-
+-- | Run 'doPacket' and return the length of the inner 'LBS.ByteString'.
 packetLength :: Packet () -> Int
 packetLength = fromIntegral . LBS.length . doPacket
 
+-- | Small wrapper around 'execWriter'.  Return the packet that has been
+-- builtup.
 doPacket :: Packet a -> LBS.ByteString
 doPacket = execWriter
 
+-- | Encode a 'Word8' with 'Data.Binary.encode' and put in the 'Packet'.
+byte :: Word8 -> Packet ()
+byte = tell . encode
+
+-- | Encode a 'Word32' with 'Data.Binary.encode' and put in the 'Packet'.
+long :: Word32 -> Packet ()
+long = tell . encode
+
+-- | Encode an 'Integer with 'mpint' and put in the 'Packet'.
+integer :: Integer -> Packet ()
+integer = tell . mpint
+
+-- | Encode a 'LBS.ByteString' with 'netLBS' and put in the 'Packet'.
+byteString :: LBS.ByteString -> Packet ()
+byteString = tell . netLBS
+
+-- | Convert a 'String' to a 'LBS.ByteString', and then pass it to
+-- 'byteString'.
+string :: String -> Packet ()
+string = byteString . toLBS
+
+-- | Put a raw 'LBS.ByteString' in a 'Packet'.  This is like 'byteString',
+-- but it does not pass the 'LBS.ByteString' to 'netLBS' first.
+raw :: LBS.ByteString -> Packet ()
+raw = tell
+
+-- | Like 'raw', but for 'String's.  'string' is to 'byteString' like 'raw'
+-- is to 'rawString'.
+rawString :: String -> Packet ()
+rawString = tell . toLBS
+
+-- | Convert a string to a 'LBS.ByteString' and the pass it to 'netLBS'.
 netString :: String -> LBS.ByteString
 netString = netLBS . toLBS
 
+-- | Prepend a 'Word32' representing the size of a 'LBS.ByteString' to the
+-- front of it.
+--
+-- >>> netLBS ""
+-- "\NUL\NUL\NUL\NUL"
+-- >>> netLBS "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+-- "\NUL\NUL\NUL0xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 netLBS :: LBS.ByteString -> LBS.ByteString
 netLBS bs = encode (fromIntegral (LBS.length bs) :: Word32) `LBS.append` bs
 
-unmpint :: LBS.ByteString -> Integer
-unmpint = fromOctets (256 :: Integer) . LBS.unpack
-
+-- | Convert an arbitrarily large 'Integer' to a 'LBS.ByteString'.
+--
+-- This works by using 'i2osp' to convert an 'Integer' to an octet list,
+-- and then using 'netLBS' to add the length of the 'Integer' on to the
+-- front of it.
+--
+-- This has some funny logic where if the most significant bit of the octet
+-- list is greater than 127, it adds an additional 0 byte to the front of
+-- the octet list.  You can see it in the examples below with 127 and 128.
+--
+-- >>> map (flip Numeric.showHex "") $ LBS.unpack $ mpint 1
+-- ["0","0","0","1","1"]
+-- >>> map (flip Numeric.showHex "") $ LBS.unpack $ mpint 15
+-- ["0","0","0","1","f"]
+-- >>> map (flip Numeric.showHex "") $ LBS.unpack $ mpint 127
+-- ["0","0","0","1","7f"]
+-- >>> map (flip Numeric.showHex "") $ LBS.unpack $ mpint 128
+-- ["0","0","0","2","0","80"]
+--
+-- __WARNING__: This throws an error if the 'Integer' is 0, and it runs
+-- forever if it is less than 0.
 mpint :: Integer -> LBS.ByteString
 mpint i = netLBS (if LBS.head enc .&. 128 > 0
                       then 0 `LBS.cons` enc
                       else enc)
   where
+    enc :: LBS.ByteString
     enc = LBS.pack (i2osp 0 i)
+
+-- | Despite what it's name looks like, this is NOT the opposite of
+-- 'mpint'.  It doesn't undo what netLBS does.  Take a look at the
+-- following examples to get a feeling for how to use it.
+--
+-- >>> unmpint . LBS.drop 4 $ mpint 1
+-- 1
+-- >>> unmpint . LBS.drop 4 $ mpint 918112219
+-- 918112219
+unmpint :: LBS.ByteString -> Integer
+unmpint = fromOctets (256 :: Integer) . LBS.unpack
 
 -- warning: don't try to send this; it's an infinite bytestring.
 -- take whatever length the key needs.
