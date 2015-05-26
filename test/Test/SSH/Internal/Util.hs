@@ -65,7 +65,7 @@ fromToOctetsTest = testProperty "(fromOctets . toOctets) x == x" $ do
     return $ from == n
 
 sshInternalUtilTests :: TestTree
-sshInternalUtilTests = testGroup "SSH/Util.hs tests"
+sshInternalUtilTests = testGroup "SSH/Internal/Util.hs tests"
     [ fromToLBSTest
     , fromToOctetsTest
     , strictLBSTest
