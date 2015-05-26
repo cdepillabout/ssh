@@ -46,6 +46,7 @@ import EmbedTree
 
 import Test.Util (ArbitraryLazyByteString(..))
 import Test.SSH.Internal.Util (sshInternalUtilTests)
+import Test.SSH.Packet (sshPacketTests)
 
 keysDirectory :: Map String Entry
 keysDirectory = getDirectory $(embedTree "keys")
@@ -272,6 +273,7 @@ allTests =
             , randomVerifyTest
             ]
         , sshInternalUtilTests
+        , sshPacketTests
         ]
 
 main :: IO ()
