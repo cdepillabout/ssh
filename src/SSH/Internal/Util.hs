@@ -38,7 +38,7 @@ strictLBS = BS.concat . LBS.toChunks
 -- | Generate a infinite list that contains the powers of a number.
 --
 -- >>> take 6 $ powersOf 3
--- [1, 3, 9, 27, 81, 216]
+-- [1,3,9,27,81,243]
 --
 -- __TODO__ This should normally be called with an Integer, or something able
 -- to express arbitrarily large numbers.  If not, the numbers in the output
@@ -73,7 +73,7 @@ toBase x =
 -- | Convert a number into an octet list with an arbitrary base.
 --
 -- >>> toOctets 256 513
--- [2, 1]
+-- [2,1]
 -- >>> toOctets 256 4096
 -- [16,0]
 --

@@ -1,7 +1,9 @@
 module SSH.Debug where
 
+import Data.ByteString.Lazy (ByteString)
+import qualified Data.ByteString.Lazy as LBS
 import Debug.Trace
-
+import Numeric (showHex)
 
 debugging :: Bool
 debugging = False
@@ -15,4 +17,7 @@ dump :: (Monad m, Show a) => a -> m ()
 dump x
     | debugging = trace (show x) (return ())
     | otherwise = return ()
+
+showHexLazyByteString :: ByteString -> [String]
+showHexLazyByteString = map (flip showHex "") . LBS.unpack
 

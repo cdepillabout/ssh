@@ -59,10 +59,12 @@ netString = netLBS . toLBS
 -- | Prepend a 'Word32' representing the size of a 'LBS.ByteString' to the
 -- front of it.
 --
--- >>> netLBS ""
--- "\NUL\NUL\NUL\NUL"
--- >>> netLBS "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
--- "\NUL\NUL\NUL0xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+-- >>> SSH.Debug.showHexLazyByteString . netLBS $ Data.ByteString.Lazy.Char8.pack ""
+-- ["0","0","0","0"]
+-- >>> SSH.Debug.showHexLazyByteString . netLBS $ Data.ByteString.Lazy.Char8.pack "a"
+-- ["0","0","0","1","61"]
+-- >>> SSH.Debug.showHexLazyByteString . netLBS $ Data.ByteString.Lazy.Char8.pack "abcd"
+-- ["0","0","0","4","61","62","63","64"]
 netLBS :: LBS.ByteString -> LBS.ByteString
 netLBS bs = encode (fromIntegral (LBS.length bs) :: Word32) `LBS.append` bs
 
@@ -76,13 +78,13 @@ netLBS bs = encode (fromIntegral (LBS.length bs) :: Word32) `LBS.append` bs
 -- list is greater than 127, it adds an additional 0 byte to the front of
 -- the octet list.  You can see it in the examples below with 127 and 128.
 --
--- >>> map (flip Numeric.showHex "") $ LBS.unpack $ mpint 1
+-- >>> SSH.Debug.showHexLazyByteString $ mpint 1
 -- ["0","0","0","1","1"]
--- >>> map (flip Numeric.showHex "") $ LBS.unpack $ mpint 15
+-- >>> SSH.Debug.showHexLazyByteString $ mpint 15
 -- ["0","0","0","1","f"]
--- >>> map (flip Numeric.showHex "") $ LBS.unpack $ mpint 127
+-- >>> SSH.Debug.showHexLazyByteString $ mpint 127
 -- ["0","0","0","1","7f"]
--- >>> map (flip Numeric.showHex "") $ LBS.unpack $ mpint 128
+-- >>> SSH.Debug.showHexLazyByteString $ mpint 128
 -- ["0","0","0","2","0","80"]
 --
 -- __WARNING__: This throws an error if the 'Integer' is 0, and it runs
