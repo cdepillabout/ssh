@@ -9,6 +9,9 @@ import Control.Applicative
 import qualified Data.ByteString.Lazy as LBS
 import Test.QuickCheck (Arbitrary(..))
 
-instance Arbitrary LBS.ByteString where
-  arbitrary = LBS.pack <$> arbitrary
+newtype ArbitraryLazyByteString = ArbitraryLazyByteString LBS.ByteString
+    deriving Show
+
+instance Arbitrary ArbitraryLazyByteString where
+  arbitrary = ArbitraryLazyByteString . LBS.pack <$> arbitrary
 

@@ -13,11 +13,12 @@ import Test.Tasty.QuickCheck (testProperty)
 
 import SSH.Internal.Util (fromLBS, fromOctets, powersOf, strictLBS, toBase, toLBS, toOctets)
 
-import Test.Util ()
+import Test.Util (ArbitraryLazyByteString(..))
 
 toFromLBSTest :: TestTree
 toFromLBSTest = testProperty "(toLBS . fromLBS) x == x" $
-    \lazyByteString -> (toLBS . fromLBS) lazyByteString == lazyByteString
+    \(ArbitraryLazyByteString lazyByteString) ->
+        (toLBS . fromLBS) lazyByteString == lazyByteString
 
 fromToLBSTest :: TestTree
 fromToLBSTest = testProperty "(fromLBS . toLBS) x == x" $
