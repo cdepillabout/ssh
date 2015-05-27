@@ -13,6 +13,11 @@ import SSH.Internal.Util
 type Packet a = Writer LBS.ByteString a
 
 -- | Run 'doPacket' and return the length of the inner 'LBS.ByteString'.
+--
+-- >>> packetLength $ byte 1 >> byte 10 >> byte 33
+-- 3
+-- >>> packetLength $ return ()
+-- 0
 packetLength :: Packet () -> Int
 packetLength = fromIntegral . LBS.length . doPacket
 
@@ -22,14 +27,29 @@ doPacket :: Packet a -> LBS.ByteString
 doPacket = execWriter
 
 -- | Encode a 'Word8' with 'Data.Binary.encode' and put in the 'Packet'.
+--
+-- >>> SSH.Debug.showHexLazyByteString . doPacket $ byte 65 >> byte 66 >> byte 67
+-- ["41","42","43"]
+-- >>> SSH.Debug.showHexLazyByteString . doPacket $ byte (-1)
+-- ["ff"]
 byte :: Word8 -> Packet ()
 byte = tell . encode
 
 -- | Encode a 'Word32' with 'Data.Binary.encode' and put in the 'Packet'.
+--
+-- >>> SSH.Debug.showHexLazyByteString . doPacket $ long 0
+-- ["0","0","0","0"]
+-- >>> SSH.Debug.showHexLazyByteString . doPacket $ long $ 65 * 256 + 66
+-- ["0","0","41","42"]
+-- >>> SSH.Debug.showHexLazyByteString . doPacket $ long (-1)
+-- ["ff","ff","ff","ff"]
 long :: Word32 -> Packet ()
 long = tell . encode
 
 -- | Encode an 'Integer with 'mpint' and put in the 'Packet'.
+--
+-- >>> SSH.Debug.showHexLazyByteString . doPacket $ integer 3
+-- ["0","0","0","1","3"]
 integer :: Integer -> Packet ()
 integer = tell . mpint
 
@@ -39,6 +59,11 @@ byteString = tell . netLBS
 
 -- | Convert a 'String' to a 'LBS.ByteString', and then pass it to
 -- 'byteString'.
+--
+-- >>> SSH.Debug.showHexLazyByteString . doPacket $ string "abcde"
+-- ["0","0","0","5","61","62","63","64","65"]
+-- >>> SSH.Debug.showHexLazyByteString . doPacket $ string ""
+-- ["0","0","0","0"]
 string :: String -> Packet ()
 string = byteString . toLBS
 
@@ -49,10 +74,20 @@ raw = tell
 
 -- | Like 'raw', but for 'String's.  'string' is to 'byteString' like 'raw'
 -- is to 'rawString'.
+--
+-- >>> SSH.Debug.showHexLazyByteString . doPacket $ rawString "abcde"
+-- ["61","62","63","64","65"]
+-- >>> SSH.Debug.showHexLazyByteString . doPacket $ rawString ""
+-- []
 rawString :: String -> Packet ()
 rawString = tell . toLBS
 
 -- | Convert a string to a 'LBS.ByteString' and the pass it to 'netLBS'.
+--
+-- >>> SSH.Debug.showHexLazyByteString $ netString "abcde"
+-- ["0","0","0","5","61","62","63","64","65"]
+-- >>> SSH.Debug.showHexLazyByteString $ netString ""
+-- ["0","0","0","0"]
 netString :: String -> LBS.ByteString
 netString = netLBS . toLBS
 
