@@ -145,6 +145,7 @@ unmpint = fromOctets (256 :: Integer) . LBS.unpack
 
 -- warning: don't try to send this; it's an infinite bytestring.
 -- take whatever length the key needs.
+-- TODO: write the documentation and tests for this.
 makeKey :: Integer -> LBS.ByteString -> Char -> LBS.ByteString
 makeKey s h c = makeKey' initial
   where
