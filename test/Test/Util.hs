@@ -7,11 +7,20 @@ import Control.Applicative
 #endif
 
 import qualified Data.ByteString.Lazy as LBS
-import Test.QuickCheck (Arbitrary(..))
+import Test.QuickCheck (Arbitrary(..), suchThat)
 
-newtype ArbitraryLazyByteString = ArbitraryLazyByteString LBS.ByteString
+newtype ArbitraryLBS = ArbitraryLBS LBS.ByteString
     deriving Show
 
-instance Arbitrary ArbitraryLazyByteString where
-  arbitrary = ArbitraryLazyByteString . LBS.pack <$> arbitrary
+instance Arbitrary ArbitraryLBS where
+    arbitrary = ArbitraryLBS . LBS.pack <$> arbitrary
+
+newtype ArbitraryNonEmptyLBS = ArbitraryNonEmptyLBS LBS.ByteString
+    deriving Show
+
+instance Arbitrary ArbitraryNonEmptyLBS where
+    arbitrary =
+        let nonEmptyString = suchThat arbitrary $ not . null
+        in ArbitraryNonEmptyLBS . LBS.pack <$> nonEmptyString
+
 

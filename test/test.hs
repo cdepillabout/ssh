@@ -41,7 +41,7 @@ import SSH.Session
 
 import EmbedTree
 
-import Test.Util (ArbitraryLazyByteString(..))
+import Test.Util (ArbitraryLBS(..))
 import Test.SSH.Internal.Util (sshInternalUtilTests)
 import Test.SSH.Packet (sshPacketTests)
 
@@ -231,12 +231,12 @@ verify key message sig =
 
 signThenVerifyTest :: TestTree
 signThenVerifyTest = testProperty "signatures from sign work with verify" $
-    \kp (ArbitraryLazyByteString message) ->
+    \kp (ArbitraryLBS message) ->
         verify (publicKey kp) message $ sign kp message
 
 signThenMutatedVerifyTest :: TestTree
 signThenMutatedVerifyTest = testProperty "mutated signatures from sign fail with verify" $
-  \kp (ArbitraryLazyByteString message) ->
+  \kp (ArbitraryLBS message) ->
     let sig = sign kp message
         actualSignatureLen = fromIntegral $ actualSignatureLength (publicKey kp)
     in forAll (choose (LBS.length sig - actualSignatureLen, LBS.length sig - 1)) $ \offset ->
@@ -252,7 +252,7 @@ randomVerifyTest = testProperty "random signatures fail with verify" $
     -- might be sensible to test some other lengths, but the actual code
     -- just takes the last n bytes anyway, and it's not totally obvious
     -- what would be a good range of values to test with.
-    \key (ArbitraryLazyByteString message) ->
+    \key (ArbitraryLBS message) ->
         forAll (vectorOf (actualSignatureLength key) arbitrary) $
             \sigBytes ->
                 not $ verify key message (LBS.pack sigBytes)
