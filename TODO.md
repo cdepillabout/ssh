@@ -14,3 +14,5 @@
   should just hard-code 256 into the method.
 
 - Do tests/documentation for `makeKey` from `SSH/Packet.hs`.
+
+- Try to write KeyPair data type from SSH/Crypto.hs as GADT.
