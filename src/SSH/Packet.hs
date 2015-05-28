@@ -10,6 +10,9 @@ import qualified Data.ByteString.Lazy as LBS
 import SSH.Internal.Util
 
 -- | A convenience wrapper around a 'Writer' holding a 'LBS.ByteString'.
+--
+-- See the note about the similarity with @NetReader@ at the 'NetReader'
+-- haddock.
 type Packet a = Writer LBS.ByteString a
 
 -- | Run 'doPacket' and return the length of the inner 'LBS.ByteString'.

@@ -44,6 +44,7 @@ import EmbedTree
 import Test.Util (ArbitraryLBS(..))
 import Test.SSH.Internal.Util (sshInternalUtilTests)
 import Test.SSH.Packet (sshPacketTests)
+import Test.SSH.NetReader (sshNetReaderTests)
 
 keysDirectory :: Map String Entry
 keysDirectory = getDirectory $(embedTree "keys")
@@ -271,6 +272,7 @@ allTests =
             ]
         , sshInternalUtilTests
         , sshPacketTests
+        , sshNetReaderTests
         ]
 
 main :: IO ()
