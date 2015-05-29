@@ -19,6 +19,8 @@ import SSH.Packet
 import SSH.NetReader
 import SSH.Internal.Util
 
+-- | Setting for a cipher, including the 'CipherType', 'CipherMode',
+-- blocksize, and keysize.
 data Cipher =
     Cipher
         { cType :: CipherType
@@ -27,7 +29,10 @@ data Cipher =
         , cKeySize :: Int
         }
 
+-- | Types of ciphers that are supported.  Currently only 'AES'.
 data CipherType = AES
+
+-- | Cipher modes that are supported.  Currently only 'CBC'.
 data CipherMode = CBC
 
 data HMAC =
