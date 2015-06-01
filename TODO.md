@@ -15,4 +15,4 @@
 
 - Do tests/documentation for `makeKey` from `SSH/Packet.hs`.
 
-- Try to write KeyPair data type from SSH/Crypto.hs as GADT.
+- Things like the KeyPair data type should be fixed so that an RSAKeyPair can't be instantiated with something like a DSAPublicKey.
