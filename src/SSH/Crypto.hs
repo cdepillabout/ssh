@@ -35,12 +35,15 @@ data CipherType = AES
 -- | Cipher modes that are supported.  Currently only 'CBC'.
 data CipherMode = CBC
 
+-- | Type with information about HMAC, including the HMAC digest size and
+-- the function to use to do the MACing.
 data HMAC =
     HMAC
         { hDigestSize :: Int
         , hFunction :: LBS.ByteString -> LBS.ByteString
         }
 
+-- | Information about an 'RSAPublicKey' or a 'DSAPublicKey'.
 data PublicKey
     = RSAPublicKey
         { rpubE :: Integer
@@ -54,6 +57,8 @@ data PublicKey
         }
     deriving (Eq, Show)
 
+-- | Similar to 'PublicKey', but for the private data.  It is unfortunate
+-- that 'rprivPub' and 'dprivPub' are the same type.
 data KeyPair
     = RSAKeyPair
         { rprivPub :: PublicKey
@@ -70,24 +75,33 @@ data KeyPair
         }
     deriving (Eq, Show)
 
--- for API compatibility
-rsaKeyPairFromFile :: FilePath -> IO KeyPair
-rsaKeyPairFromFile = keyPairFromFile
-
+-- | Read in a 'KeyPair' from a file on disk.  This uses 'parseKeyPair' to
+-- do the parsing.
 keyPairFromFile :: FilePath -> IO KeyPair
 keyPairFromFile fn = do
     x <- readFile fn
     return $ parseKeyPair x
 
+-- | Remove the \"-------BEGIN RSA PRIVATE KEY---------\" and
+-- \"-----END...\" strings from an ssh private key.  If you want to get an
+-- idea of what a private key looks like, just look at
+-- @/etc/ssh/ssh_host_rsa_key@.  Returns a string containing the type of
+-- key (probably something like \"RSA\"), and a list of strings
+-- corresponding to the encoded key itself.
 removeKeyPairHeaderFooter :: [String] -> (String, [String])
 removeKeyPairHeaderFooter xs =
    (reverse . drop 17 . reverse . drop 11 . head $ xs, filter (not . ("--" `isPrefixOf`)) xs)
 
-addKeyPairHeaderFooter :: String -> [String] -> [String]
+-- | This is the reverse of 'removeKeyPairHeaderFooter'.
+addKeyPairHeaderFooter :: String   -- ^ type of key, something like \"RSA\"
+                       -> [String] -- ^ the actual key value
+                       -> [String]
 addKeyPairHeaderFooter what xs =
    ["-----BEGIN " ++ what ++ " PRIVATE KEY-----"] ++ xs ++ ["-----END " ++ what ++ " PRIVATE KEY-----"]
 
--- |Parse an key pair from OpenSSH private key file format.
+-- | Parse an key pair from OpenSSH private key file format.
+--
+-- __WARNING__: This really makes too much use of 'error'.  Not safe :-\\.
 parseKeyPair :: String -> KeyPair
 parseKeyPair x =
     let (what, body) = removeKeyPairHeaderFooter . lines $ x
@@ -97,32 +111,32 @@ parseKeyPair x =
     in case decodeASN1 BER (toLBS asn1) of
         Right (Start Sequence:ss)
             | all isIntVal (fst $ getConstructedEnd 0 ss) ->
-            let (is, _) = getConstructedEnd 0 ss
-            in case what of
-                 "RSA" ->
-                   RSAKeyPair
-                     { rprivPub = RSAPublicKey
-                        { rpubE = intValAt 2 is
-                        , rpubN = intValAt 1 is
-                        }
-                    , rprivD = intValAt 3 is
-                    , rprivPrime1 = intValAt 4 is
-                    , rprivPrime2 = intValAt 5 is
-                    , rprivExponent1 = intValAt 6 is
-                    , rprivExponent2 = intValAt 7 is
-                    , rprivCoefficient = intValAt 8 is
-                    }
-                 "DSA" ->
-                   DSAKeyPair
-                    { dprivPub = DSAPublicKey
-                       { dpubP = intValAt 1 is
-                       , dpubQ = intValAt 2 is
-                       , dpubG = intValAt 3 is
-                       , dpubY = intValAt 4 is
-                       }
-                    , dprivX = intValAt 5 is
-                    }
-                 _ -> error ("unknown key type: " ++ what)
+                let (is, _) = getConstructedEnd 0 ss
+                in case what of
+                    "RSA" ->
+                        RSAKeyPair
+                            { rprivPub = RSAPublicKey
+                                { rpubE = intValAt 2 is
+                                , rpubN = intValAt 1 is
+                                }
+                            , rprivD = intValAt 3 is
+                            , rprivPrime1 = intValAt 4 is
+                            , rprivPrime2 = intValAt 5 is
+                            , rprivExponent1 = intValAt 6 is
+                            , rprivExponent2 = intValAt 7 is
+                            , rprivCoefficient = intValAt 8 is
+                            }
+                    "DSA" ->
+                        DSAKeyPair
+                            { dprivPub = DSAPublicKey
+                            { dpubP = intValAt 1 is
+                            , dpubQ = intValAt 2 is
+                            , dpubG = intValAt 3 is
+                            , dpubY = intValAt 4 is
+                            }
+                            , dprivX = intValAt 5 is
+                            }
+                    _ -> error ("unknown key type: " ++ what)
         Right u -> error ("unknown ASN1 decoding result: " ++ show u)
         Left e -> error ("ASN1 decoding of private key failed: " ++ show e)
   where
