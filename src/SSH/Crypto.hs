@@ -77,6 +77,9 @@ data KeyPair
 
 -- | Read in a 'KeyPair' from a file on disk.  This uses 'parseKeyPair' to
 -- do the parsing.
+--
+-- For an overview of the private key formats, see the documentation at
+-- 'createAsn1FromKeyPair'.
 keyPairFromFile :: FilePath -> IO KeyPair
 keyPairFromFile fn = do
     x <- readFile fn
@@ -105,9 +108,7 @@ addKeyPairHeaderFooter what xs =
 parseKeyPair :: String -> KeyPair
 parseKeyPair x =
     let (what, body) = removeKeyPairHeaderFooter . lines $ x
-
         asn1 = B64.decode . concat $ body
-
     in case decodeASN1 BER (toLBS asn1) of
         Right (Start Sequence:ss)
             | all isIntVal (fst $ getConstructedEnd 0 ss) ->
@@ -140,36 +141,91 @@ parseKeyPair x =
         Right u -> error ("unknown ASN1 decoding result: " ++ show u)
         Left e -> error ("ASN1 decoding of private key failed: " ++ show e)
   where
+    -- | Return True if the 'ASN1' type is an 'IntVal'.
+    isIntVal :: ASN1 -> Bool
     isIntVal (IntVal _) = True
     isIntVal _ = False
 
+    -- | Return the Haskell 'Integer' value inside the 'IntVal' at the
+    -- 'Int' index in the 'ASN1' list.  If value is not actually an
+    -- 'IntVal', then throw an error.
+    --
+    -- This function should probably return a 'Maybe'.
+    intValAt :: Int -> [ASN1] -> Integer
     intValAt i is =
         case is !! i of
             IntVal n -> n
             v -> error ("not an IntVal: " ++ show v)
 
--- |Turn an key pair into OpenSSH private key file format.
+-- | Create an 'ASN1' structure from a 'KeyPair'.
+--
+-- The ASN1 format for RSA private keys is defined here:
+-- <http://tools.ietf.org/html/rfc3447#appendix-A.1>
+--
+-- The ASN1 format for a DSA private key looks like it was made up by
+-- openssh, but you can find some details here:
+-- <http://superuser.com/questions/478966/dsa-private-key-format>
+--
+-- Throws an error if passed an 'RSAKeyPair' containing an 'DSAPublicKey'
+-- or the reverse.  This function should really return a Maybe (not throw
+-- an error).
+createAsn1FromKeyPair :: KeyPair -> [ASN1]
+createAsn1FromKeyPair RSAKeyPair { rprivPub = RSAPublicKey { rpubE = e
+                                                           , rpubN = n }
+                                 , rprivD = d
+                                 , rprivPrime1 = p1
+                                 , rprivPrime2 = p2
+                                 , rprivExponent1 = exp1
+                                 , rprivExponent2 = exp2
+                                 , rprivCoefficient = c
+                                 } =
+    [ Start Sequence
+    , IntVal 0
+    , IntVal n
+    , IntVal e
+    , IntVal d
+    , IntVal p1
+    , IntVal p2
+    , IntVal exp1
+    , IntVal exp2
+    , IntVal c
+    , End Sequence
+    ]
+createAsn1FromKeyPair DSAKeyPair { dprivPub = DSAPublicKey { dpubP = p
+                                                           , dpubQ = q
+                                                           , dpubG = g
+                                                           , dpubY = y
+                                                           }
+                                 , dprivX = x
+                                 } =
+    [ Start Sequence
+    , IntVal 0
+    , IntVal p
+    , IntVal q
+    , IntVal g
+    , IntVal y
+    , IntVal x
+    , End Sequence
+    ]
+createAsn1FromKeyPair _ = error "createAsn1FromKeyPair: unsupportedKeyPair"
+
+-- | Turn a key pair into OpenSSH private key file format.
+--
+-- For an overview of the private key formats, see the documentation at
+-- 'createAsn1FromKeyPair'.
 printKeyPair :: KeyPair -> String
 printKeyPair keyPair =
-  unlines . addKeyPairHeaderFooter what . lines . B64.encode . fromLBS . encodeASN1 DER $ asn1Structure
-
-    where
-
-      (what, asn1Structure) =
-        case keyPair of
-          (RSAKeyPair { rprivPub = RSAPublicKey { rpubE = e, rpubN = n },
-                        rprivD = d, rprivPrime1 = p1, rprivPrime2 = p2,
-                        rprivExponent1 = exp1, rprivExponent2 = exp2, rprivCoefficient = c
-                      })
-             -> ("RSA", [Start Sequence, IntVal 0, IntVal n, IntVal e, IntVal d,
-                         IntVal p1, IntVal p2, IntVal exp1, IntVal exp2, IntVal c, End Sequence])
-
-          (DSAKeyPair { dprivPub = DSAPublicKey { dpubP = p, dpubQ = q, dpubG = g, dpubY = y }, dprivX = x })
-             -> ("DSA", [Start Sequence, IntVal 0, IntVal p, IntVal q, IntVal g,
-                         IntVal y, IntVal x, End Sequence])
-
-          _ -> error "printKeyPair: unsupported key pair"
-
+    unlines
+      . addKeyPairHeaderFooter (keyTypeString keyPair)
+      . lines
+      . B64.encode
+      . fromLBS
+      . encodeASN1 DER
+      $ createAsn1FromKeyPair keyPair
+  where
+    keyTypeString :: KeyPair -> String
+    keyTypeString RSAKeyPair{} = "RSA"
+    keyTypeString DSAKeyPair{} = "DSA"
 
 
 -- these are the generator and prime for the "Second Oakley Group" described in RFC 2409
@@ -180,6 +236,7 @@ generator = 2
 safePrime :: Integer
 safePrime = 179769313486231590770839156793787453197860296048756011706444423684197180216158519368947833795864925541502180565485980503646440548199239100050792877003355816639229553136239076508735759914822574862575007425302077447712589550957937778424442426617334727629299387668709205606050270810842907692932019128194467627007
 
+-- TODO: Move these following two functions to the Util.hs module.
 toBlocks :: (Integral a) => a -> LBS.ByteString -> [LBS.ByteString]
 toBlocks _ m | m == LBS.empty = []
 toBlocks bs m = b : rest
