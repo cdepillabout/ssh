@@ -85,12 +85,12 @@ keyPairFromFile fn = do
     x <- readFile fn
     return $ parseKeyPair x
 
--- | Remove the \"-------BEGIN RSA PRIVATE KEY---------\" and
--- \"-----END...\" strings from an ssh private key.  If you want to get an
--- idea of what a private key looks like, just look at
+-- | Remove the @\"-------BEGIN RSA PRIVATE KEY---------\"@ and
+-- @\"-----END...\"@ strings from an ssh private key.  If you want to get
+-- an idea of what a private key looks like, just look at
 -- @/etc/ssh/ssh_host_rsa_key@.  Returns a string containing the type of
--- key (probably something like \"RSA\"), and a list of strings
--- corresponding to the encoded key itself.
+-- key (probably something like @\"RSA\"@ or @"\DSA\"@), and a list of
+-- strings corresponding to the encoded key itself.
 removeKeyPairHeaderFooter :: [String] -> (String, [String])
 removeKeyPairHeaderFooter xs =
    (reverse . drop 17 . reverse . drop 11 . head $ xs, filter (not . ("--" `isPrefixOf`)) xs)
@@ -228,11 +228,15 @@ printKeyPair keyPair =
     keyTypeString DSAKeyPair{} = "DSA"
 
 
--- these are the generator and prime for the "Second Oakley Group" described in RFC 2409
-
+-- | Generator for the "Second Oakley Group" described in RFC 2409.
+--
+-- <https://tools.ietf.org/html/rfc2409#section-6.2>
 generator :: Integer
 generator = 2
 
+-- | Prime for the "Second Oakley Group" described in RFC 2409.
+--
+-- <https://tools.ietf.org/html/rfc2409#section-6.2>
 safePrime :: Integer
 safePrime = 179769313486231590770839156793787453197860296048756011706444423684197180216158519368947833795864925541502180565485980503646440548199239100050792877003355816639229553136239076508735759914822574862575007425302077447712589550957937778424442426617334727629299387668709205606050270810842907692932019128194467627007
 
