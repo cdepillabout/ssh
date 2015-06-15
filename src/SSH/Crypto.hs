@@ -19,6 +19,12 @@ import SSH.Packet
 import SSH.NetReader
 import SSH.Internal.Util
 
+-- Setup for the doctests.  Import additional modules.
+-- $setup
+-- >>> :set -XScopedTypeVariables
+-- >>> import SSH.Internal.Util (toLBS)
+-- >>> import Test.Tasty.QuickCheck (Positive(..))
+
 -- | Setting for a cipher, including the 'CipherType', 'CipherMode',
 -- blocksize, and keysize.
 data Cipher =
@@ -240,7 +246,21 @@ generator = 2
 safePrime :: Integer
 safePrime = 179769313486231590770839156793787453197860296048756011706444423684197180216158519368947833795864925541502180565485980503646440548199239100050792877003355816639229553136239076508735759914822574862575007425302077447712589550957937778424442426617334727629299387668709205606050270810842907692932019128194467627007
 
--- TODO: Move these following two functions to the Util.hs module.
+-- | Chop a 'LBS.ByteString' up into equal sized blocks.
+--
+-- >>> toBlocks 1 "hello"
+-- ["h","e","l","l","o"]
+-- >>> toBlocks 3 "hello"
+-- ["hel","lo"]
+-- >>> toBlocks 10 "hello"
+-- ["hello"]
+--
+-- 'toBlocks' and 'fromBlocks' are more-or-less inverses.
+--
+-- prop> \(Positive blockSize) str -> (fromBlocks . toBlocks blockSize $ toLBS str) == toLBS str
+--
+-- __WARNING__:  Using a non-positive blocksize will result in this
+-- function never returning.  This should be fixed.
 toBlocks :: (Integral a) => a -> LBS.ByteString -> [LBS.ByteString]
 toBlocks _ m | m == LBS.empty = []
 toBlocks bs m = b : rest
@@ -248,6 +268,10 @@ toBlocks bs m = b : rest
     b = LBS.take (fromIntegral bs) m
     rest = toBlocks bs (LBS.drop (fromIntegral bs) m)
 
+-- | Defined as 'LBS.concat'.
+--
+-- >>> fromBlocks ["hello", " my n", "ame i", "s SPJ"]
+-- "hello my name is SPJ"
 fromBlocks :: [LBS.ByteString] -> LBS.ByteString
 fromBlocks = LBS.concat
 
