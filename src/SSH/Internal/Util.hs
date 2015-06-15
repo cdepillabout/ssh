@@ -21,6 +21,11 @@ import qualified Data.ByteString.Lazy as LBS
 import GHC.Base (Int(I#))
 import GHC.Integer.Logarithms (integerLog2#)
 
+-- Setup for the doctests.  Import additional modules.
+-- $setup
+-- >>> :set -XScopedTypeVariables
+-- >>> import SSH.Internal.Util (toLBS)
+-- >>> import Test.Tasty.QuickCheck (Positive(..))
 
 -- | Convert a 'String' to a lazy 'Data.ByteString.Lazy.ByteString'.
 toLBS :: String -> LBS.ByteString

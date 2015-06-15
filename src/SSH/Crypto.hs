@@ -19,12 +19,6 @@ import SSH.Packet
 import SSH.NetReader
 import SSH.Internal.Util
 
--- Setup for the doctests.  Import additional modules.
--- $setup
--- >>> :set -XScopedTypeVariables
--- >>> import SSH.Internal.Util (toLBS)
--- >>> import Test.Tasty.QuickCheck (Positive(..))
-
 -- | Setting for a cipher, including the 'CipherType', 'CipherMode',
 -- blocksize, and keysize.
 data Cipher =
