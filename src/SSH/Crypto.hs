@@ -47,7 +47,8 @@ data HMAC =
 data PublicKey
     = RSAPublicKey
         { rpubE :: Integer
-        , rpubN :: Integer
+        , rpubN :: Integer  -- ^ p * q.  Used as modulus for pub and priv keys.
+                            -- It's length in bits is the key length.
         }
     | DSAPublicKey
         { dpubP :: Integer
@@ -240,11 +241,29 @@ generator = 2
 safePrime :: Integer
 safePrime = 179769313486231590770839156793787453197860296048756011706444423684197180216158519368947833795864925541502180565485980503646440548199239100050792877003355816639229553136239076508735759914822574862575007425302077447712589550957937778424442426617334727629299387668709205606050270810842907692932019128194467627007
 
-rsaKeyLen :: PublicKey -> Int
+-- | Returns the number of bytes of an 'RSAPublicKey' rounded down.
+--
+-- >>> rsaKeyLen $ RSAPublicKey 0 1
+-- 0
+-- >>> rsaKeyLen $ RSAPublicKey 0 $ 2^7 - 1
+-- 0
+-- >>> rsaKeyLen $ RSAPublicKey 0 $ 2^7
+-- 1
+-- >>> rsaKeyLen $ RSAPublicKey 0 $ 2^8
+-- 1
+-- >>> rsaKeyLen $ RSAPublicKey 0 $ 2^15
+-- 2
+-- >>> rsaKeyLen $ RSAPublicKey 0 $ 2^15 - 1
+-- 1
+--
 -- There's no explicit indication of size in the key format so we just
 -- have to look at the magnitude of the numbers.
 -- This is consistent with what e.g. openssh does.
-rsaKeyLen (RSAPublicKey _e n) = (1 + integerLog2 n) `div` 8
+--
+-- __WARNING__: Passing an 'RSAPublicKey' with a 'rpubN' that is
+-- non-positive will result in an 'error'.
+rsaKeyLen :: PublicKey -> Int
+rsaKeyLen (RSAPublicKey _ n) = (1 + integerLog2 n) `div` 8
 rsaKeyLen _ = error "rsaKeyLen: not an RSA public key"
 
 blob :: PublicKey -> LBS.ByteString
