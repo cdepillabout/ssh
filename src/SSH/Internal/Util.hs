@@ -149,3 +149,32 @@ i2osp padLength y = pad ++ z
 integerLog2 :: Integer -> Int
 integerLog2 n | n <=0 = error "integerLog2: argument must be positive"
 integerLog2 n = I# (integerLog2# n)
+
+-- | Chop a 'LBS.ByteString' up into equal sized blocks.
+--
+-- >>> toBlocks 1 "hello"
+-- ["h","e","l","l","o"]
+-- >>> toBlocks 3 "hello"
+-- ["hel","lo"]
+-- >>> toBlocks 10 "hello"
+-- ["hello"]
+--
+-- 'toBlocks' and 'fromBlocks' are more-or-less inverses.
+--
+-- prop> \(Positive blockSize) str -> (fromBlocks . toBlocks blockSize $ toLBS str) == toLBS str
+--
+-- __WARNING__:  Using a non-positive blocksize will result in this
+-- function never returning.  This should be fixed.
+toBlocks :: (Integral a) => a -> LBS.ByteString -> [LBS.ByteString]
+toBlocks _ m | m == LBS.empty = []
+toBlocks bs m = b : rest
+  where
+    b = LBS.take (fromIntegral bs) m
+    rest = toBlocks bs (LBS.drop (fromIntegral bs) m)
+
+-- | Defined as 'LBS.concat'.
+--
+-- >>> fromBlocks ["hello", " my n", "ame i", "s SPJ"]
+-- "hello my name is SPJ"
+fromBlocks :: [LBS.ByteString] -> LBS.ByteString
+fromBlocks = LBS.concat
