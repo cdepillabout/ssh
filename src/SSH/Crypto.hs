@@ -46,8 +46,8 @@ data HMAC =
 -- | Information about an 'RSAPublicKey' or a 'DSAPublicKey'.
 data PublicKey
     = RSAPublicKey
-        { rpubE :: Integer
-        , rpubN :: Integer  -- ^ p * q.  Used as modulus for pub and priv keys.
+        { rpubE :: Integer  -- ^ @e * d = 1 mod L@
+        , rpubN :: Integer  -- ^ @N = p * q@.  Used as modulus for pub and priv keys.
                             -- It's length in bits is the key length.
         }
     | DSAPublicKey
@@ -63,9 +63,9 @@ data PublicKey
 data KeyPair
     = RSAKeyPair
         { rprivPub :: PublicKey
-        , rprivD :: Integer
-        , rprivPrime1 :: Integer
-        , rprivPrime2 :: Integer
+        , rprivD :: Integer            -- ^ @e * d = 1 mod L@
+        , rprivPrime1 :: Integer       -- ^ @p@
+        , rprivPrime2 :: Integer       -- ^ @q@
         , rprivExponent1 :: Integer
         , rprivExponent2 :: Integer
         , rprivCoefficient :: Integer
