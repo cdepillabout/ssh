@@ -309,15 +309,31 @@ blobToKey s = flip evalState s $ do
             return $ DSAPublicKey p q g y
         u -> error $ "unknown public key format: " ++ u
 
+-- | Return signature for message.
+--
+-- RSA uses 'RSA.rsassa_pkcs1_v1_5_verify', which looks like it takes the
+-- original message, SHA1's it, and then computes the signature from the
+-- digest.
+--
+-- DSA first computes the digest using 'sha1' and then signs the digest
+-- using 'DSA.signDigestedDataWithDSA'.
+--
+-- __WARNING__: If this is called with a 'RSAKeyPair' that contains
+-- a 'DSAPublicKey' (or the reverse), it will throw 'error'.
 sign :: KeyPair -> LBS.ByteString -> IO LBS.ByteString
-sign (RSAKeyPair p@(RSAPublicKey e n) d _ _ _ _ _) m = do
+sign (RSAKeyPair p@(RSAPublicKey e n) d _ _ _ _ _) message = do
   let keyLen = rsaKeyLen p
+      publicKey = RSAKey.PublicKey keyLen n e
+      privateKey = RSAKey.PrivateKey publicKey d 0 0 0 0 0
+      signature = RSA.rsassa_pkcs1_v1_5_sign RSA.ha_SHA1 privateKey message
   return $ LBS.concat
     [ netString "ssh-rsa"
-    , netLBS (RSA.rsassa_pkcs1_v1_5_sign RSA.ha_SHA1 (RSAKey.PrivateKey (RSAKey.PublicKey keyLen n e) d 0 0 0 0 0) m)
+    , netLBS signature
     ]
 sign (DSAKeyPair (DSAPublicKey p q g y) x) m = do
-    (r, s) <- DSA.signDigestedDataWithDSA (DSA.tupleToDSAKeyPair (p, q, g, y, x)) digest
+    let digest = strictLBS . bytestringDigest . sha1 $ m
+        dsaKeyPair = DSA.tupleToDSAKeyPair (p, q, g, y, x)
+    (r, s) <- DSA.signDigestedDataWithDSA dsaKeyPair digest
     return $ LBS.concat
         [ netString "ssh-dss"
         , netLBS $ LBS.concat
@@ -325,8 +341,6 @@ sign (DSAKeyPair (DSAPublicKey p q g y) x) m = do
             , LBS.pack $ i2osp 20 s
             ]
         ]
-  where
-    digest = strictLBS . bytestringDigest . sha1 $ m
 sign _ _ = error "sign: invalid key pair"
 
 -- |The length of the actual signature for a given key
