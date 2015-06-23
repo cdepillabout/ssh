@@ -19,6 +19,10 @@ import SSH.Packet
 import SSH.NetReader
 import SSH.Internal.Util
 
+-- Setup for the doctests.  Import additional modules.
+-- $setup
+-- >>> import Test.Tasty.QuickCheck (Positive(..))
+
 -- | Setting for a cipher, including the 'CipherType', 'CipherMode',
 -- blocksize, and keysize.
 data Cipher =
@@ -266,6 +270,16 @@ rsaKeyLen :: PublicKey -> Int
 rsaKeyLen (RSAPublicKey _ n) = (1 + integerLog2 n) `div` 8
 rsaKeyLen _ = error "rsaKeyLen: not an RSA public key"
 
+-- | Turns a 'PublicKey' to a binary blob.  Used when doing authentication.
+--
+-- >>> let publicKey = RSAPublicKey 10 20
+-- >>> blobToKey $ blob publicKey
+-- RSAPublicKey {rpubE = 10, rpubN = 20}
+--
+-- Composing 'blobToKey' and 'blob' should always give us back the same thing.
+--
+-- prop> \(Positive e) (Positive n) -> let key = RSAPublicKey e n in blobToKey (blob key) == key
+--
 blob :: PublicKey -> LBS.ByteString
 blob (RSAPublicKey e n) = doPacket $ do
     string "ssh-rsa"
@@ -278,6 +292,9 @@ blob (DSAPublicKey p q g y) = doPacket $ do
     integer g
     integer y
 
+-- | Turn a binary blob to a 'PublicKey'.
+--
+-- See documentation for 'blob'.
 blobToKey :: LBS.ByteString -> PublicKey
 blobToKey s = flip evalState s $ do
     t <- readString
