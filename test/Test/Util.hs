@@ -14,6 +14,7 @@ import Data.List (isSuffixOf)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import System.FilePath ((<.>))
+import Test.QuickCheck.Monadic (PropertyM, assert, run)
 import Test.Tasty.QuickCheck (Arbitrary(..), elements, suchThat)
 
 import SSH.Crypto (KeyPair(..), PublicKey(..), parseKeyPair)
@@ -54,6 +55,10 @@ instance Arbitrary PublicKey where
 publicKey :: KeyPair -> PublicKey
 publicKey RSAKeyPair{..} = rprivPub
 publicKey DSAKeyPair{..} = dprivPub
+
+-- | Like 'assert'.  Allows embedding monadic Bools into 'PropertyM's.
+assertM :: Monad m => m Bool -> PropertyM m ()
+assertM propM = run propM >>= assert
 
 ---------------------------------------------------------------------
 -- Helper functions for working with test data in @keys@ directory --
