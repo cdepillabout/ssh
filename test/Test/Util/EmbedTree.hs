@@ -23,9 +23,7 @@ import Language.Haskell.TH
 import Language.Haskell.TH.Syntax
 
 import System.Directory
-  (doesFileExist, doesDirectoryExist
-  ,getDirectoryContents
-  )
+    ( doesFileExist, doesDirectoryExist, getDirectoryContents )
 import System.FilePath (takeDirectory, (</>))
 
 -- | This represents a directory listing.  It can either
