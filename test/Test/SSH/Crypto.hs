@@ -8,11 +8,14 @@ import Control.Applicative
 #endif
 
 import Control.Exception (ErrorCall(..), catchJust, evaluate)
+import Control.Monad.Trans.Class (lift)
 import qualified Data.ByteString.Lazy as LBS
 import Data.Word (Word8)
 import System.IO.Unsafe (unsafePerformIO)
+import Test.QuickCheck.Monadic (assert, monadicIO, pick)
 import Test.Tasty (TestTree, testGroup)
-import Test.Tasty.QuickCheck (arbitrary, choose, forAll, testProperty, vectorOf)
+import Test.Tasty.QuickCheck
+    (arbitrary, choose, forAll, testProperty, vectorOf)
 
 import SSH.Crypto hiding (sign, verify)
 import qualified SSH.Crypto as Crypto
@@ -23,21 +26,20 @@ import Test.Util (ArbitraryLBS(..), publicKey)
 -- Helper Methods --
 --------------------
 
--- QuickCheck tests end up using unsafePerformIO because sign and verify
+-- | QuickCheck tests end up using unsafePerformIO because sign and verify
 -- are in IO, which in turn is because the DSA operations are in IO,
 -- but hopefully they only have benign side-effects if any
 
+-- | Wrap 'Crypto.sign' in 'unsafePerformIO'.
 sign :: KeyPair -> LBS.ByteString -> LBS.ByteString
 sign kp message = unsafePerformIO $ Crypto.sign kp message
 
+-- | Wrap 'Crypto.verify' in 'unsafePerformIO'.
 verify :: PublicKey -> LBS.ByteString -> LBS.ByteString -> Bool
 verify key message sig =
-  unsafePerformIO $
-    catchJust
-      sigErrors
-      (Crypto.verify key message sig >>= evaluate)
-      (\() -> return False)
-
+  unsafePerformIO $ catchJust sigErrors
+                        (Crypto.verify key message sig >>= evaluate)
+                        (\() -> return False)
   where
     sigErrors (ErrorCall msg)
       | msg == "signature representative out of range" = Just ()
@@ -47,10 +49,18 @@ verify key message sig =
 -- Tests --
 -----------
 
+-- signThenVerifyTest :: TestTree
+-- signThenVerifyTest = testProperty "signatures from sign work with verify" $
+--     \kp (ArbitraryLBS message) ->
+--         verify (publicKey kp) message $ sign kp message
+
 signThenVerifyTest :: TestTree
-signThenVerifyTest = testProperty "signatures from sign work with verify" $
-    \kp (ArbitraryLBS message) ->
-        verify (publicKey kp) message $ sign kp message
+signThenVerifyTest =
+    testProperty "signatures from sign work with verify" $ monadicIO $ do
+        keyPair <- pick arbitrary
+        ArbitraryLBS message <- pick arbitrary
+        digest <- lift $ Crypto.sign keyPair message
+        assert $ verify (publicKey keyPair) message digest
 
 signThenMutatedVerifyTest :: TestTree
 signThenMutatedVerifyTest = testProperty "mutated signatures from sign fail with verify" $
