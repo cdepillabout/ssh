@@ -2,12 +2,12 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
 
-module EmbedTree ( Entry(..)
-                 , getFile
-                 , getDirectory
-                 , getEntry
-                 , embedTree
-                 ) where
+module Test.Util.EmbedTree ( Entry(..)
+                           , getFile
+                           , getDirectory
+                           , getEntry
+                           , embedTree
+                           ) where
 
 #if __GLASGOW_HASKELL__ < 710
 import Control.Applicative

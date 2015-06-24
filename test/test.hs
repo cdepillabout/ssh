@@ -1,14 +1,6 @@
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
-module Main where
 
-import Test.Tasty
-    (TestTree, defaultMain, testGroup, withResource
-    )
-import Test.Tasty.HUnit (assertBool, testCase)
-import Test.Tasty.QuickCheck
-    (Arbitrary(..), choose, elements, forAll, testProperty, vectorOf)
+module Main where
 
 #if __GLASGOW_HASKELL__ < 710
 import Control.Applicative
@@ -16,18 +8,13 @@ import Control.Applicative
 
 import Control.Concurrent (forkIO, killThread)
 import Control.Concurrent.MVar (newEmptyMVar, takeMVar, putMVar)
-import Control.Exception (bracket, try, catchJust, ErrorCall(..), evaluate)
+import Control.Exception (bracket, try)
 import Control.Monad (when)
 import Data.ByteString.Char8 (pack)
-import qualified Data.ByteString.Lazy as LBS
-import Data.List (isSuffixOf)
-import Data.Map (Map)
-import qualified Data.Map as Map
-import Data.Word (Word8)
 import System.Directory (createDirectoryIfMissing, removeFile)
-import System.FilePath ((<.>))
 import System.IO (hPutStr, openTempFile, hClose)
-import System.IO.Unsafe (unsafePerformIO)
+import Test.Tasty (TestTree, defaultMain, testGroup, withResource)
+import Test.Tasty.HUnit (assertBool, testCase)
 
 import Network.SSH.Client.LibSSH2
 import Network.SSH.Client.LibSSH2.Errors
@@ -35,19 +22,15 @@ import Network.SSH.Client.LibSSH2.Foreign
 
 import qualified SSH
 import SSH.Channel
-import SSH.Crypto hiding (sign, verify)
-import qualified SSH.Crypto as Crypto
+import SSH.Crypto
 import SSH.Session
 
-import EmbedTree
-
-import Test.Util (ArbitraryLBS(..))
+import Test.SSH.Crypto (sshCryptoTests)
 import Test.SSH.Internal.Util (sshInternalUtilTests)
 import Test.SSH.Packet (sshPacketTests)
 import Test.SSH.NetReader (sshNetReaderTests)
-
-keysDirectory :: Map String Entry
-keysDirectory = getDirectory $(embedTree "keys")
+import Test.Util
+    ( getClientPrivateKeyPair, getClientPublicKeyFileText, hostKeyPair, privateKeyPairFiles, publicKey)
 
 sshPort :: Num a => a -- used as an Int or a PortNumber
 sshPort = 5032
@@ -148,25 +131,6 @@ breakPrivateKey kp@RSAKeyPair {} =
    }
 breakPrivateKey kp@DSAKeyPair {} = kp { dprivX = 1 }
 
-publicKey :: KeyPair -> PublicKey
-publicKey (RSAKeyPair { rprivPub = k }) = k
-publicKey (DSAKeyPair { dprivPub = k }) = k
-
-hostKeyPair :: KeyPair
-hostKeyPair = parseKeyPair . getFile $ getEntry "host" keysDirectory
-
-clientKeysDirectory :: Map String Entry
-clientKeysDirectory = getDirectory $ getEntry "client" keysDirectory
-
-getClientPublicKeyFileText :: String -> String
-getClientPublicKeyFileText keyName = getFile $ getEntry (keyName <.> "pub") clientKeysDirectory
-
-getClientPrivateKeyPair :: String -> KeyPair
-getClientPrivateKeyPair keyName = parseKeyPair . getFile $ getEntry keyName clientKeysDirectory
-
-privateKeyPairFiles :: [String]
-privateKeyPairFiles = filter (not . isSuffixOf "pub") $ Map.keys clientKeysDirectory
-
 singleKeyAuthTests :: TestTree
 singleKeyAuthTests =
   testGroup "Single key auth tests"
@@ -204,60 +168,6 @@ wrongKeyAuthTest =
     wrongPrivateKeyPair = getClientPrivateKeyPair "id_rsa_test2"
     wrongPublicKeyFileText = getClientPublicKeyFileText "id_rsa_test2"
 
-instance Arbitrary KeyPair where
-  arbitrary = elements $ map getClientPrivateKeyPair privateKeyPairFiles
-
-instance Arbitrary PublicKey where
-  arbitrary = publicKey <$> arbitrary
-
--- QuickCheck tests end up using unsafePerformIO because sign and verify
--- are in IO, which in turn is because the DSA operations are in IO,
--- but hopefully they only have benign side-effects if any
-
-sign :: KeyPair -> LBS.ByteString -> LBS.ByteString
-sign kp message = unsafePerformIO $ Crypto.sign kp message
-
-verify :: PublicKey -> LBS.ByteString -> LBS.ByteString -> Bool
-verify key message sig =
-  unsafePerformIO $
-    catchJust
-      sigErrors
-      (Crypto.verify key message sig >>= evaluate)
-      (\() -> return False)
-
-  where
-    sigErrors (ErrorCall msg)
-      | msg == "signature representative out of range" = Just ()
-    sigErrors _ = Nothing
-
-signThenVerifyTest :: TestTree
-signThenVerifyTest = testProperty "signatures from sign work with verify" $
-    \kp (ArbitraryLBS message) ->
-        verify (publicKey kp) message $ sign kp message
-
-signThenMutatedVerifyTest :: TestTree
-signThenMutatedVerifyTest = testProperty "mutated signatures from sign fail with verify" $
-  \kp (ArbitraryLBS message) ->
-    let sig = sign kp message
-        actualSignatureLen = fromIntegral $ actualSignatureLength (publicKey kp)
-    in forAll (choose (LBS.length sig - actualSignatureLen, LBS.length sig - 1)) $ \offset ->
-       forAll (choose (1, 255 :: Word8)) $ \mutation ->
-       let mutatedSig =
-             LBS.take offset sig `LBS.append`
-             LBS.pack [LBS.index sig offset + mutation] `LBS.append`
-             LBS.drop (offset+1) sig
-       in not $ verify (publicKey kp) message mutatedSig
-
-randomVerifyTest :: TestTree
-randomVerifyTest = testProperty "random signatures fail with verify" $
-    -- might be sensible to test some other lengths, but the actual code
-    -- just takes the last n bytes anyway, and it's not totally obvious
-    -- what would be a good range of values to test with.
-    \key (ArbitraryLBS message) ->
-        forAll (vectorOf (actualSignatureLength key) arbitrary) $
-            \sigBytes ->
-                not $ verify key message (LBS.pack sigBytes)
-
 allTests :: TestTree
 allTests =
     testGroup "Tests"
@@ -265,14 +175,10 @@ allTests =
             [ singleKeyAuthTests
             , wrongKeyAuthTest
             ]
-        , testGroup "Signatures"
-            [ signThenVerifyTest
-            , signThenMutatedVerifyTest
-            , randomVerifyTest
-            ]
         , sshInternalUtilTests
         , sshPacketTests
         , sshNetReaderTests
+        , sshCryptoTests
         ]
 
 main :: IO ()

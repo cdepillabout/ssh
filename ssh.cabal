@@ -86,11 +86,11 @@ test-suite ssh-test
   hs-source-dirs:   test
   main-is:          test.hs
 
-  other-modules:    EmbedTree
-                  , Test.SSH.Internal.Util
+  other-modules:    Test.SSH.Internal.Util
                   , Test.SSH.NetReader
                   , Test.SSH.Packet
                   , Test.Util
+                  , Test.Util.EmbedTree
                     
 
   ghc-options:      -Wall -threaded
