@@ -1,6 +1,7 @@
 module SSH.Crypto where
 
 import Control.Monad (replicateM)
+import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Trans.State (evalState)
 import Data.ASN1.BinaryEncoding (BER(..), DER(..))
 import Data.ASN1.Encoding (decodeASN1, encodeASN1)
@@ -320,7 +321,7 @@ blobToKey s = flip evalState s $ do
 --
 -- __WARNING__: If this is called with a 'RSAKeyPair' that contains
 -- a 'DSAPublicKey' (or the reverse), it will throw 'error'.
-sign :: KeyPair -> LBS.ByteString -> IO LBS.ByteString
+sign :: (MonadIO m) => KeyPair -> LBS.ByteString -> m LBS.ByteString
 sign (RSAKeyPair p@(RSAPublicKey e n) d _ _ _ _ _) message = do
   let keyLen = rsaKeyLen p
       publicKey = RSAKey.PublicKey keyLen n e
@@ -333,7 +334,7 @@ sign (RSAKeyPair p@(RSAPublicKey e n) d _ _ _ _ _) message = do
 sign (DSAKeyPair (DSAPublicKey p q g y) x) m = do
     let digest = strictLBS . bytestringDigest . sha1 $ m
         dsaKeyPair = DSA.tupleToDSAKeyPair (p, q, g, y, x)
-    (r, s) <- DSA.signDigestedDataWithDSA dsaKeyPair digest
+    (r, s) <- liftIO $ DSA.signDigestedDataWithDSA dsaKeyPair digest
     return $ LBS.concat
         [ netString "ssh-dss"
         , netLBS $ LBS.concat
@@ -350,7 +351,7 @@ actualSignatureLength :: PublicKey -> Int
 actualSignatureLength p@(RSAPublicKey {}) = rsaKeyLen p
 actualSignatureLength (DSAPublicKey {}) = 40
 
-verify :: PublicKey -> LBS.ByteString -> LBS.ByteString -> IO Bool
+verify :: (MonadIO m) => PublicKey -> LBS.ByteString -> LBS.ByteString -> m Bool
 verify p@(RSAPublicKey e n) message signature = do
     let keyLen = rsaKeyLen p
         realSignature = LBS.drop (LBS.length signature - fromIntegral keyLen) signature
@@ -360,6 +361,6 @@ verify (DSAPublicKey p q g y) message signature = do
     let realSignature = LBS.drop (LBS.length signature - 40) signature
         r = fromOctets (256 :: Integer) (LBS.unpack (LBS.take 20 realSignature))
         s = fromOctets (256 :: Integer) (LBS.unpack (LBS.take 20 (LBS.drop 20 realSignature)))
-    DSA.verifyDigestedDataWithDSA (DSA.tupleToDSAPubKey (p, q, g, y)) digest (r, s)
+    liftIO $ DSA.verifyDigestedDataWithDSA (DSA.tupleToDSAPubKey (p, q, g, y)) digest (r, s)
   where
     digest = strictLBS . bytestringDigest . sha1 $ message

@@ -8,7 +8,6 @@ import Control.Applicative
 #endif
 
 import Control.Exception (ErrorCall(..), catchJust, evaluate)
-import Control.Monad.Trans.Class (lift)
 import qualified Data.ByteString.Lazy as LBS
 import Data.Word (Word8)
 import System.IO.Unsafe (unsafePerformIO)
@@ -49,17 +48,12 @@ verify key message sig =
 -- Tests --
 -----------
 
--- signThenVerifyTest :: TestTree
--- signThenVerifyTest = testProperty "signatures from sign work with verify" $
---     \kp (ArbitraryLBS message) ->
---         verify (publicKey kp) message $ sign kp message
-
 signThenVerifyTest :: TestTree
 signThenVerifyTest =
     testProperty "signatures from sign work with verify" $ monadicIO $ do
         keyPair <- pick arbitrary
         ArbitraryLBS message <- pick arbitrary
-        digest <- lift $ Crypto.sign keyPair message
+        digest <- Crypto.sign keyPair message
         assert $ verify (publicKey keyPair) message digest
 
 signThenMutatedVerifyTest :: TestTree
