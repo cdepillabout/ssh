@@ -7,10 +7,8 @@ module Test.SSH.Crypto (sshCryptoTests) where
 import Control.Applicative
 #endif
 
-import Control.Exception (ErrorCall(..), catchJust, evaluate)
 import qualified Data.ByteString.Lazy as LBS
 import Data.Word (Word8)
-import System.IO.Unsafe (unsafePerformIO)
 import Test.QuickCheck.Monadic (monadicIO, pick)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (arbitrary, choose, testProperty, vectorOf)
@@ -19,25 +17,6 @@ import SSH.Crypto hiding (verify)
 import qualified SSH.Crypto as Crypto
 
 import Test.Util (ArbitraryLBS(..), assertM, publicKey)
-
---------------------
--- Helper Methods --
---------------------
-
--- | QuickCheck tests end up using unsafePerformIO because sign and verify
--- are in IO, which in turn is because the DSA operations are in IO,
--- but hopefully they only have benign side-effects if any
-
--- | Wrap 'Crypto.verify' in 'unsafePerformIO'.
-verify :: PublicKey -> LBS.ByteString -> LBS.ByteString -> Bool
-verify key message sig =
-  unsafePerformIO $ catchJust sigErrors
-                        (Crypto.verify key message sig >>= evaluate)
-                        (\() -> return False)
-  where
-    sigErrors (ErrorCall msg)
-      | msg == "signature representative out of range" = Just ()
-    sigErrors _ = Nothing
 
 -----------
 -- Tests --
@@ -69,7 +48,7 @@ signThenMutatedVerifyTest =
 
 randomVerifyTest :: TestTree
 randomVerifyTest =
-    testProperty "random signatures fail with verify" $ monadicIO $ do
+    testProperty "random signatures fail with verify" . monadicIO $ do
         keyPair <- pick arbitrary
         ArbitraryLBS message <- pick arbitrary
         -- might be sensible to test some other lengths, but the actual code

@@ -1,5 +1,8 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module SSH.Crypto where
 
+import Control.Exception (ErrorCall(..), catchJust, evaluate)
 import Control.Monad (replicateM)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Trans.State (evalState)
@@ -321,7 +324,9 @@ blobToKey s = flip evalState s $ do
 --
 -- __WARNING__: If this is called with a 'RSAKeyPair' that contains
 -- a 'DSAPublicKey' (or the reverse), it will throw 'error'.
-sign :: (MonadIO m) => KeyPair -> LBS.ByteString -> m LBS.ByteString
+sign :: (MonadIO m) => KeyPair              -- ^ key
+                    -> LBS.ByteString       -- ^ message
+                    -> m LBS.ByteString     -- ^ signature
 sign (RSAKeyPair p@(RSAPublicKey e n) d _ _ _ _ _) message = do
   let keyLen = rsaKeyLen p
       publicKey = RSAKey.PublicKey keyLen n e
@@ -344,23 +349,54 @@ sign (DSAKeyPair (DSAPublicKey p q g y) x) m = do
         ]
 sign _ _ = error "sign: invalid key pair"
 
--- |The length of the actual signature for a given key
+-- | The length of the actual signature for a given key.
 -- The actual signature data is always found at the end of a complete signature,
 -- so can be extracted by just grabbing this many bytes at the end.
+--
+-- DSA keys always produce signatures of length 40 bytes. The length of
+-- signatures of RSA keys is calculated with 'rsaKeyLen'.
 actualSignatureLength :: PublicKey -> Int
 actualSignatureLength p@(RSAPublicKey {}) = rsaKeyLen p
 actualSignatureLength (DSAPublicKey {}) = 40
 
-verify :: (MonadIO m) => PublicKey -> LBS.ByteString -> LBS.ByteString -> m Bool
-verify p@(RSAPublicKey e n) message signature = do
+-- | Verify a signature for a message with a public key.
+verify :: PublicKey          -- ^ key
+       -> LBS.ByteString     -- ^ message
+       -> LBS.ByteString     -- ^ signature
+       -> IO Bool            -- ^ true if signature is valid,
+                             -- false if it isn't
+verify p@(RSAPublicKey e n) message signature = verifyCatchException $ do
     let keyLen = rsaKeyLen p
-        realSignature = LBS.drop (LBS.length signature - fromIntegral keyLen) signature
-    return $ RSA.rsassa_pkcs1_v1_5_verify RSA.ha_SHA1 (RSAKey.PublicKey keyLen n e) message realSignature
+        -- TODO: Is it alright that we are dropping characters from the
+        -- signature...?
+        extraCharsToDrop = LBS.length signature - fromIntegral keyLen
+        realSignature = LBS.drop extraCharsToDrop signature
+        pubKey = RSAKey.PublicKey keyLen n e
+    -- TODO: despite not being in IO, this RSA will sometimes throw errors.
+    -- That probably shouldn't happen...
+    return $ RSA.rsassa_pkcs1_v1_5_verify RSA.ha_SHA1 pubKey message realSignature
 
 verify (DSAPublicKey p q g y) message signature = do
     let realSignature = LBS.drop (LBS.length signature - 40) signature
         r = fromOctets (256 :: Integer) (LBS.unpack (LBS.take 20 realSignature))
         s = fromOctets (256 :: Integer) (LBS.unpack (LBS.take 20 (LBS.drop 20 realSignature)))
+    -- Unlike, RSA above, this doesn't appear to throw errors, even when
+    -- fed weird data.
     liftIO $ DSA.verifyDigestedDataWithDSA (DSA.tupleToDSAPubKey (p, q, g, y)) digest (r, s)
   where
     digest = strictLBS . bytestringDigest . sha1 $ message
+
+verifyCatchException :: IO Bool -> IO Bool
+verifyCatchException verifyIO =
+    liftIO $ catchJust errorSelector verifyIOWrapper errorHandler
+  where
+    errorSelector :: ErrorCall -> Maybe ()
+    errorSelector (ErrorCall msg)
+      | msg == "signature representative out of range" = Just ()
+    errorSelector _ = Nothing
+
+    errorHandler :: a -> IO Bool
+    errorHandler _ = return False
+
+    verifyIOWrapper :: IO Bool
+    verifyIOWrapper = verifyIO >>= evaluate

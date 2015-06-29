@@ -34,8 +34,9 @@ version = "SSH-2.0-DarcsDen"
 
 supportedKeyExchanges :: [String]
 supportedKeyExchanges =
-    {-"diffie-hellman-group-exchange-sha1," ++-}
-    ["diffie-hellman-group1-sha1"]
+    [ "diffie-hellman-group1-sha1"
+    -- , "diffie-hellman-group-exchange-sha1"
+    ]
 
 supportedKeyAlgorithms :: [String]
 supportedKeyAlgorithms = ["ssh-rsa", "ssh-dss"]
