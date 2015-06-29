@@ -15,6 +15,7 @@ import Data.List (isPrefixOf)
 import qualified Codec.Binary.Base64.String as B64
 import qualified Codec.Crypto.RSA as RSA
 import qualified Data.ByteString.Lazy as LBS
+import qualified Data.ByteString as SBS
 import qualified OpenSSL.DSA as DSA
 
 import qualified Crypto.Types.PubKey.RSA as RSAKey
@@ -315,7 +316,7 @@ blobToKey s = flip evalState s $ do
 
 -- | Return signature for message.
 --
--- RSA uses 'RSA.rsassa_pkcs1_v1_5_verify', which looks like it takes the
+-- RSA uses 'RSA.rsassa_pkcs1_v1_5_sign, which looks like it takes the
 -- original message, SHA1's it, and then computes the signature from the
 -- digest.
 --
@@ -360,6 +361,9 @@ actualSignatureLength p@(RSAPublicKey {}) = rsaKeyLen p
 actualSignatureLength (DSAPublicKey {}) = 40
 
 -- | Verify a signature for a message with a public key.
+--
+-- 'RSA.rsassa_pkcs1_v1_5_verify' is used for RSA, and
+-- 'DSA.verifyDigestedDataWithDSA' is used for DSA.
 verify :: PublicKey          -- ^ key
        -> LBS.ByteString     -- ^ message
        -> LBS.ByteString     -- ^ signature
@@ -377,15 +381,25 @@ verify p@(RSAPublicKey e n) message signature = verifyCatchException $ do
     return $ RSA.rsassa_pkcs1_v1_5_verify RSA.ha_SHA1 pubKey message realSignature
 
 verify (DSAPublicKey p q g y) message signature = do
+        -- TODO: Is it alright that we are dropping extra characters from
+        -- the signature?  If the signature is too long, we probably should
+        -- just be returning False...
     let realSignature = LBS.drop (LBS.length signature - 40) signature
-        r = fromOctets (256 :: Integer) (LBS.unpack (LBS.take 20 realSignature))
-        s = fromOctets (256 :: Integer) (LBS.unpack (LBS.take 20 (LBS.drop 20 realSignature)))
+        sigFirstHalf = LBS.take 20 realSignature
+        sigSecondHalf = LBS.take 20 $ LBS.drop 20 realSignature
+        r = fromOctets (256 :: Integer) $ LBS.unpack sigFirstHalf
+        s = fromOctets (256 :: Integer) $ LBS.unpack sigSecondHalf
+        pubKey = DSA.tupleToDSAPubKey (p, q, g, y)
     -- Unlike, RSA above, this doesn't appear to throw errors, even when
     -- fed weird data.
-    liftIO $ DSA.verifyDigestedDataWithDSA (DSA.tupleToDSAPubKey (p, q, g, y)) digest (r, s)
+    liftIO $ DSA.verifyDigestedDataWithDSA pubKey digest (r, s)
   where
+    digest :: SBS.ByteString
     digest = strictLBS . bytestringDigest . sha1 $ message
 
+-- | Helper function for 'verify'.  'verify' will throw IO errors. If an IO
+-- error occurs, we need to catch it and return 'False' to indicate the
+-- signature did not match the message.
 verifyCatchException :: IO Bool -> IO Bool
 verifyCatchException verifyIO =
     liftIO $ catchJust errorSelector verifyIOWrapper errorHandler
