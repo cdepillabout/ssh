@@ -29,6 +29,7 @@ import Test.SSH.Crypto (sshCryptoTests)
 import Test.SSH.Internal.Util (sshInternalUtilTests)
 import Test.SSH.Packet (sshPacketTests)
 import Test.SSH.NetReader (sshNetReaderTests)
+import Test.SSH.Sender (sshSenderTests)
 import Test.Util
     ( getClientPrivateKeyPair, getClientPublicKeyFileText, hostKeyPair, privateKeyPairFiles, publicKey)
 
@@ -175,10 +176,11 @@ allTests =
             [ singleKeyAuthTests
             , wrongKeyAuthTest
             ]
-        , sshInternalUtilTests
-        , sshPacketTests
-        , sshNetReaderTests
         , sshCryptoTests
+        , sshInternalUtilTests
+        , sshNetReaderTests
+        , sshPacketTests
+        , sshSenderTests
         ]
 
 main :: IO ()
