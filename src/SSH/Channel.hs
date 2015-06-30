@@ -1,4 +1,6 @@
-{-# LANGUAGE FlexibleInstances, TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 module SSH.Channel where
 
 import Control.Concurrent
@@ -70,6 +72,8 @@ data Process =
         }
 
 instance Sender Channel where
+
+    send :: SenderMessage -> Channel ()
     send m = gets csSend >>= liftIO . ($ m)
 
 
