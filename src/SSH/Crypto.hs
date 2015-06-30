@@ -2,6 +2,7 @@
 
 module SSH.Crypto where
 
+import qualified Codec.Crypto.SimpleAES as AES
 import Control.Exception (ErrorCall(..), catchJust, evaluate)
 import Control.Monad (replicateM)
 import Control.Monad.IO.Class (MonadIO, liftIO)
@@ -15,14 +16,16 @@ import Data.List (isPrefixOf)
 import qualified Codec.Binary.Base64.String as B64
 import qualified Codec.Crypto.RSA as RSA
 import qualified Data.ByteString.Lazy as LBS
-import qualified Data.ByteString as SBS
+import qualified Data.ByteString as BS
 import qualified OpenSSL.DSA as DSA
 
 import qualified Crypto.Types.PubKey.RSA as RSAKey
 
-import SSH.Packet
-import SSH.NetReader
+import SSH.Packet (doPacket, integer, netLBS, netString, string)
+import SSH.NetReader (readInteger, readString)
 import SSH.Internal.Util
+    ( fromBlocks, fromLBS, fromOctets, i2osp, integerLog2, strictLBS, toBlocks
+    , toLBS)
 
 -- Setup for the doctests.  Import additional modules.
 -- $setup
@@ -400,7 +403,7 @@ verify (DSAPublicKey p q g y) message signature = do
     -- fed weird data.
     liftIO $ verifyCatchException unwrappedVerify
   where
-    digest :: SBS.ByteString
+    digest :: BS.ByteString
     digest = strictLBS . bytestringDigest . sha1 $ message
 
 -- | Helper function for 'verify'.  'verify' will throw IO errors. If an IO
@@ -417,3 +420,13 @@ verifyCatchException verifyIO =
 
     errorHandler :: a -> IO Bool
     errorHandler _ = return False
+
+encrypt :: Cipher -> BS.ByteString -> BS.ByteString -> LBS.ByteString -> (LBS.ByteString, BS.ByteString)
+encrypt (Cipher AES CBC bs _) key vector m =
+    ( fromBlocks encrypted
+    , case encrypted of
+          (_:_) -> strictLBS (last encrypted)
+          [] -> error ("encrypted data empty for `" ++ show m ++ "' in encrypt") vector
+    )
+  where
+    encrypted = toBlocks bs $ AES.crypt AES.CBC key vector AES.Encrypt m

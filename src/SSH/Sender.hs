@@ -5,15 +5,12 @@ import Control.Monad (replicateM)
 import Data.Word
 import System.IO
 import System.Random
-import qualified Codec.Crypto.SimpleAES as AES
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 
 import SSH.Debug
-import SSH.Crypto
-import SSH.Packet
-import SSH.Internal.Util
-
+import SSH.Crypto (Cipher(..), HMAC(..), encrypt)
+import SSH.Packet (Packet, byte, doPacket, long, raw)
 
 data SenderState
     = NoKeys
@@ -101,14 +98,3 @@ sender ms ss = do
         if paddingNeeded msg < 4
             then paddingNeeded msg + fromIntegral blockSize
             else paddingNeeded msg
-
-
-encrypt :: Cipher -> BS.ByteString -> BS.ByteString -> LBS.ByteString -> (LBS.ByteString, BS.ByteString)
-encrypt (Cipher AES CBC bs _) key vector m =
-    ( fromBlocks encrypted
-    , case encrypted of
-          (_:_) -> strictLBS (last encrypted)
-          [] -> error ("encrypted data empty for `" ++ show m ++ "' in encrypt") vector
-    )
-  where
-    encrypted = toBlocks bs $ AES.crypt AES.CBC key vector AES.Encrypt m
