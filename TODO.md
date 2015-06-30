@@ -15,6 +15,3 @@
 - Do tests/documentation for `makeKey` from `SSH/Packet.hs`.
 
 - Things like the KeyPair data type should be fixed so that an RSAKeyPair can't be instantiated with something like a DSAPublicKey.
-
-- sign/verify should really be in MonadIO, but to do that we need to actually
-  handle errors correctly.  Can't just use catchJust.

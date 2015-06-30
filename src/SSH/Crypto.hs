@@ -364,21 +364,26 @@ actualSignatureLength (DSAPublicKey {}) = 40
 --
 -- 'RSA.rsassa_pkcs1_v1_5_verify' is used for RSA, and
 -- 'DSA.verifyDigestedDataWithDSA' is used for DSA.
-verify :: PublicKey          -- ^ key
+verify :: MonadIO m
+       => PublicKey          -- ^ key
        -> LBS.ByteString     -- ^ message
        -> LBS.ByteString     -- ^ signature
-       -> IO Bool            -- ^ true if signature is valid,
+       -> m Bool            -- ^ true if signature is valid,
                              -- false if it isn't
-verify p@(RSAPublicKey e n) message signature = verifyCatchException $ do
+verify p@(RSAPublicKey e n) message signature = do
     let keyLen = rsaKeyLen p
         -- TODO: Is it alright that we are dropping characters from the
         -- signature...?
         extraCharsToDrop = LBS.length signature - fromIntegral keyLen
         realSignature = LBS.drop extraCharsToDrop signature
         pubKey = RSAKey.PublicKey keyLen n e
-    -- TODO: despite not being in IO, this RSA will sometimes throw errors.
-    -- That probably shouldn't happen...
-    return $ RSA.rsassa_pkcs1_v1_5_verify RSA.ha_SHA1 pubKey message realSignature
+        -- TODO: despite not being in IO, this RSA will sometimes throw errors.
+        -- That probably shouldn't happen...
+        unwrappedVerify = return $ RSA.rsassa_pkcs1_v1_5_verify RSA.ha_SHA1
+                                                                pubKey
+                                                                message
+                                                                realSignature
+    liftIO $ verifyCatchException unwrappedVerify
 
 verify (DSAPublicKey p q g y) message signature = do
         -- TODO: Is it alright that we are dropping extra characters from
@@ -390,9 +395,10 @@ verify (DSAPublicKey p q g y) message signature = do
         r = fromOctets (256 :: Integer) $ LBS.unpack sigFirstHalf
         s = fromOctets (256 :: Integer) $ LBS.unpack sigSecondHalf
         pubKey = DSA.tupleToDSAPubKey (p, q, g, y)
+        unwrappedVerify = DSA.verifyDigestedDataWithDSA pubKey digest (r, s)
     -- Unlike, RSA above, this doesn't appear to throw errors, even when
     -- fed weird data.
-    liftIO $ DSA.verifyDigestedDataWithDSA pubKey digest (r, s)
+    liftIO $ verifyCatchException unwrappedVerify
   where
     digest :: SBS.ByteString
     digest = strictLBS . bytestringDigest . sha1 $ message
@@ -402,7 +408,7 @@ verify (DSAPublicKey p q g y) message signature = do
 -- signature did not match the message.
 verifyCatchException :: IO Bool -> IO Bool
 verifyCatchException verifyIO =
-    liftIO $ catchJust errorSelector verifyIOWrapper errorHandler
+    liftIO $ catchJust errorSelector (verifyIO >>= evaluate) errorHandler
   where
     errorSelector :: ErrorCall -> Maybe ()
     errorSelector (ErrorCall msg)
@@ -411,6 +417,3 @@ verifyCatchException verifyIO =
 
     errorHandler :: a -> IO Bool
     errorHandler _ = return False
-
-    verifyIOWrapper :: IO Bool
-    verifyIOWrapper = verifyIO >>= evaluate

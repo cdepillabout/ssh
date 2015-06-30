@@ -13,8 +13,7 @@ import Test.QuickCheck.Monadic (monadicIO, pick)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (arbitrary, choose, testProperty, vectorOf)
 
-import SSH.Crypto hiding (verify)
-import qualified SSH.Crypto as Crypto
+import SSH.Crypto
 
 import Test.Util (ArbitraryLBS(..), assertM, publicKey)
 
@@ -27,15 +26,15 @@ signThenVerifyTest =
     testProperty "signatures from sign work with verify" . monadicIO $ do
         keyPair <- pick arbitrary
         ArbitraryLBS message <- pick arbitrary
-        digest <- Crypto.sign keyPair message
-        assertM $ Crypto.verify (publicKey keyPair) message digest
+        digest <- sign keyPair message
+        assertM $ verify (publicKey keyPair) message digest
 
 signThenMutatedVerifyTest :: TestTree
 signThenMutatedVerifyTest =
     testProperty "mutated signatures from sign fail with verify" . monadicIO $ do
         keyPair <- pick arbitrary
         ArbitraryLBS message <- pick arbitrary
-        digest <- Crypto.sign keyPair message
+        digest <- sign keyPair message
         let pubKey = publicKey keyPair
             actualSignatureLen = fromIntegral $ actualSignatureLength pubKey
         offset <- pick $ choose ( LBS.length digest - actualSignatureLen
@@ -44,7 +43,7 @@ signThenMutatedVerifyTest =
         let mutatedSig = LBS.take offset digest `LBS.append`
                          LBS.pack [LBS.index digest offset + mutation] `LBS.append`
                          LBS.drop (offset+1) digest
-        assertM $ not <$> Crypto.verify (publicKey keyPair) message mutatedSig
+        assertM $ not <$> verify (publicKey keyPair) message mutatedSig
 
 randomVerifyTest :: TestTree
 randomVerifyTest =
@@ -55,7 +54,7 @@ randomVerifyTest =
         -- just takes the last n bytes anyway, and it's not totally obvious
         -- what would be a good range of values to test with.
         sigBytes <- pick $ vectorOf (actualSignatureLength keyPair) arbitrary
-        assertM $ not <$> Crypto.verify keyPair message (LBS.pack sigBytes)
+        assertM $ not <$> verify keyPair message (LBS.pack sigBytes)
 
 sshCryptoTests :: TestTree
 sshCryptoTests = testGroup "SSH/Crypto.hs tests"
