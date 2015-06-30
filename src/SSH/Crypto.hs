@@ -24,7 +24,7 @@ import qualified Crypto.Types.PubKey.RSA as RSAKey
 import SSH.Packet (doPacket, integer, netLBS, netString, string)
 import SSH.NetReader (readInteger, readString)
 import SSH.Internal.Util
-    ( fromBlocks, fromLBS, fromOctets, i2osp, integerLog2, strictLBS, toBlocks
+    ( fromLBS, fromOctets, i2osp, integerLog2, strictLBS, toBlocks
     , toLBS)
 
 -- Setup for the doctests.  Import additional modules.
@@ -421,12 +421,50 @@ verifyCatchException verifyIO =
     errorHandler :: a -> IO Bool
     errorHandler _ = return False
 
-encrypt :: Cipher -> BS.ByteString -> BS.ByteString -> LBS.ByteString -> (LBS.ByteString, BS.ByteString)
-encrypt (Cipher AES CBC bs _) key vector m =
-    ( fromBlocks encrypted
-    , case encrypted of
-          (_:_) -> strictLBS (last encrypted)
-          [] -> error ("encrypted data empty for `" ++ show m ++ "' in encrypt") vector
-    )
+-- | Encrypt a message with a given key and IV.  Use the 'AES.crypt'
+-- function to do the encryption.
+--
+-- __TODO__: 'AES.crypt' has a weird message:
+--
+-- @
+--  Encryption/decryption for lazy bytestrings. The input string is
+--  zero-padded to a multiple of 16. __It is your obligation to separate
+--  encode the length of the string.__
+-- @
+--
+-- What does the bolded part mean?  Are we even doing this?
+--
+-- <https://hackage.haskell.org/package/SimpleAES-0.4.2 SimpleAES> hasn't
+-- been updated since 2010.  Is it really safe to use?  The 'AES.crypt'
+-- function makes heavy use of 'unsafePerformIO' and 'unsafeInterleaveIO'.
+--
+-- __TODO__: This function can throw an error.  That's really not good.  We
+-- should have it return a Maybe or something.
+--
+encrypt :: Cipher                            -- ^ Cipher settings to use to do
+                                             -- the encrypting.  Right now
+                                             -- the only settings supported
+                                             -- are AES/CBC.
+        -> BS.ByteString                     -- ^ The encryption key.
+        -> BS.ByteString                     -- ^ The initialization vector.
+        -> LBS.ByteString                    -- ^ The message to encrypt.
+        -> (LBS.ByteString, BS.ByteString)   -- ^ A tuple of the lazy
+                                             -- bytestring returned from
+                                             -- 'AES.crypt' and a strict
+                                             -- bytestring of the last
+                                             -- block from 'AES.Crypt'.
+                                             -- __TODO__: What does this
+                                             -- contain?
+encrypt (Cipher AES CBC bs _) key vector m = (simpleAESEncrypted, lastBlock)
   where
-    encrypted = toBlocks bs $ AES.crypt AES.CBC key vector AES.Encrypt m
+    simpleAESEncrypted :: LBS.ByteString
+    simpleAESEncrypted = AES.crypt AES.CBC key vector AES.Encrypt m
+
+    encryptedToBlocks :: [LBS.ByteString]
+    encryptedToBlocks = toBlocks bs simpleAESEncrypted
+
+    lastBlock :: BS.ByteString
+    lastBlock =
+        case encryptedToBlocks of
+            (_:_) -> strictLBS $ last encryptedToBlocks
+            [] -> error $ "encrypted data empty for `" ++ show m ++ "' in encrypt"
