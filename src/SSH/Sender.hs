@@ -60,11 +60,11 @@ sender senderMessageChan senderState = do
             let encryptingSenderState = senderState { senderEncrypting = True }
             sender senderMessageChan encryptingSenderState
         Send msg -> do
-            let paddingLength = fromIntegral $ paddingLen msg
+            let paddingLength = fromIntegral $ paddingLen msg senderState
                 rand = randomRIO (0, 255 :: Int)
             intPad <- replicateM paddingLength rand
             let pad = LBS.pack . map fromIntegral $ intPad
-            let f = full msg pad
+            let f = full msg pad senderState
             case senderState of
                 GotKeys h os True cipher key iv (HMAC _ mac) -> do
                     dump ("sending encrypted", os, f)
@@ -84,8 +84,12 @@ sender senderMessageChan senderState = do
                     hFlush (senderThem senderState)
                     sender senderMessageChan (senderState { senderOutSeq = senderOutSeq senderState + 1 })
   where
-    blockSize =
-        case senderState of
+    -- | Return blocksize needed for a message in 'SenderState'.  If we are
+    -- in the state of 'GotKeys', then if the blocksize of the
+    -- 'senderCipher' is more than 8, we use it, otherwise we just use 8.
+    blockSize :: SenderState -> Int
+    blockSize senderState' =
+        case senderState' of
             GotKeys { senderCipher = Cipher _ _ bs _ }
                 | bs > 8 -> bs
             _ -> 8
@@ -93,31 +97,67 @@ sender senderMessageChan senderState = do
     -- | Turns a message and a pad into a packet with 'doPacket'.
     --
     -- Four things will be in the the resulting 'LBS.ByteString'.
-    --  1. a 'long' of the message's length calculated with 'len'.
-    --  2. a 'byte' of the padding length calculated with 'paddingLen'.
-    --  2. a 'raw' of the message.
-    --  2. a 'raw' of the pad.
+    --   1. a 'long' of the message's length calculated with 'len'.
+    --   2. a 'byte' of the padding length calculated with 'paddingLen'.
+    --   3. a 'raw' of the message.
+    --   4. a 'raw' of the pad.
+    --
+    -- This is defined in <http://tools.ietf.org/html/rfc4253#section-6
+    -- rfc4253, section 6>.
     full :: LBS.ByteString -- ^ message to pad and turn into a packet
          -> LBS.ByteString -- ^ padding
+         -> SenderState    -- ^ current 'SenderState' ('GotKeys' messages have
+                           -- a different blocksize.
          -> LBS.ByteString
-    full msg pad = doPacket $ do
-        long (len msg)
-        byte (paddingLen msg)
+    full msg pad senderState' = doPacket $ do
+        long (len msg senderState')
+        byte (paddingLen msg senderState')
         raw msg
         raw pad
 
-    -- | Calculate the message length.  Used in 'full' above.
+    -- | Calculate the packet length.  Used in 'full' above.
     --
-    -- The calculation is 1 plus the length of the message plus the length
-    -- of the padding returned from 'paddingLen'.
-    len :: LBS.ByteString -> Word32
-    len msg = 1 + fromIntegral (LBS.length msg) + fromIntegral (paddingLen msg)
+    -- The calculation is 1 (for the padding_length field) plus the length
+    -- of the message (the payload) plus the length of the padding returned from
+    -- 'paddingLen' (the random padding field).
+    --
+    -- This is defined in <http://tools.ietf.org/html/rfc4253#section-6
+    -- rfc4253, section 6>.  The packet_len field is the length of the
+    -- packet, not including the 'mac' or 'packet_length' field itself.
+    len :: LBS.ByteString -> SenderState -> Word32
+    len msg senderState' =
+        let messageLength = fromIntegral $ LBS.length msg
+            paddingLength = fromIntegral $ paddingLen msg senderState'
+        -- The 1 is being added because it represents 1 byte for the
+        -- padding_length field.
+        in 1 + messageLength + paddingLength
 
-    paddingNeeded :: LBS.ByteString -> Word8
-    paddingNeeded msg = fromIntegral blockSize - (fromIntegral $ (5 + LBS.length msg) `mod` fromIntegral blockSize)
+    -- | Calculate the amount of padding needed based on the message
+    -- length and current 'SenderState'.
+    paddingNeeded :: LBS.ByteString -> SenderState -> Word8
+    paddingNeeded msg senderState' =
+        let blockSize' = blockSize senderState'
+            -- We are adding 5 here because it is the length of the
+            -- packet_length field (4 bytes) plus the padding_length field
+            -- (1 byte).
+            messageLength = 5 + LBS.length msg
+            moddedMessage = messageLength `mod` fromIntegral blockSize'
+        in fromIntegral blockSize' - fromIntegral moddedMessage
 
-    paddingLen :: LBS.ByteString -> Word8
-    paddingLen msg =
-        if paddingNeeded msg < 4
-            then paddingNeeded msg + fromIntegral blockSize
-            else paddingNeeded msg
+    -- | Calculate the padding length needed for a given message based on
+    -- the message length and the 'SenderState'.  We use 'paddingNeeded'
+    -- here.  If 'paddingNeeded' returns a number less than 4, then we
+    -- return that numer plus the 'blockSize'.  Otherwise, we just return
+    -- the value from 'paddingNeeded'.
+    --
+    -- This is defined in <http://tools.ietf.org/html/rfc4253#section-6
+    -- rfc4253, section 6>.  It says, "There MUST be at least four
+    -- bytes of padding.  The padding SHOULD consist of random bytes.  The
+    -- maximum amount of padding is 255 bytes."
+    paddingLen :: LBS.ByteString -> SenderState -> Word8
+    paddingLen msg senderState' =
+        let paddingNeeded' = paddingNeeded msg senderState'
+            blockSize' = fromIntegral $ blockSize senderState'
+        in if paddingNeeded' < 4
+            then paddingNeeded' + blockSize'
+            else paddingNeeded'
