@@ -1,10 +1,10 @@
 module SSH.Sender where
 
-import Control.Concurrent.Chan
+import Control.Concurrent.Chan (Chan, readChan)
 import Control.Monad (replicateM)
-import Data.Word
-import System.IO
-import System.Random
+import Data.Word (Word32, Word8)
+import System.IO (Handle, hFlush)
+import System.Random (randomRIO)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 
@@ -40,23 +40,32 @@ class Sender a where
     sendPacket = send . Send . doPacket
 
 sender :: Chan SenderMessage -> SenderState -> IO ()
-sender ms ss = do
-    m <- readChan ms
+sender senderMessageChan senderState = do
+    m <- readChan senderMessageChan
     case m of
         Stop -> return ()
         Prepare cipher key iv hmac -> do
             dump ("initiating encryption", key, iv)
-            sender ms (GotKeys (senderThem ss) (senderOutSeq ss) False cipher key iv hmac)
+            let gotKeys = GotKeys { senderThem = senderThem senderState
+                                  , senderOutSeq = senderOutSeq senderState
+                                  , senderEncrypting = False
+                                  , senderCipher = cipher
+                                  , senderKey = key
+                                  , senderVector = iv
+                                  , senderHMAC = hmac
+                                  }
+            sender senderMessageChan gotKeys
         StartEncrypting -> do
             dump ("starting encryption")
-            sender ms (ss { senderEncrypting = True })
+            let encryptingSenderState = senderState { senderEncrypting = True }
+            sender senderMessageChan encryptingSenderState
         Send msg -> do
-            pad <- fmap (LBS.pack . map fromIntegral) $
-                replicateM (fromIntegral $ paddingLen msg) (randomRIO (0, 255 :: Int))
-
+            let paddingLength = fromIntegral $ paddingLen msg
+                rand = randomRIO (0, 255 :: Int)
+            intPad <- replicateM paddingLength rand
+            let pad = LBS.pack . map fromIntegral $ intPad
             let f = full msg pad
-
-            case ss of
+            case senderState of
                 GotKeys h os True cipher key iv (HMAC _ mac) -> do
                     dump ("sending encrypted", os, f)
                     let (encrypted, newVector) = encrypt cipher key iv f
@@ -65,28 +74,42 @@ sender ms ss = do
                         , mac . doPacket $ long os >> raw f
                         ]
                     hFlush h
-                    sender ms $ ss
-                        { senderOutSeq = senderOutSeq ss + 1
+                    sender senderMessageChan $ senderState
+                        { senderOutSeq = senderOutSeq senderState + 1
                         , senderVector = newVector
                         }
                 _ -> do
-                    dump ("sending unencrypted", senderOutSeq ss, f)
-                    LBS.hPut (senderThem ss) f
-                    hFlush (senderThem ss)
-                    sender ms (ss { senderOutSeq = senderOutSeq ss + 1 })
+                    dump ("sending unencrypted", senderOutSeq senderState, f)
+                    LBS.hPut (senderThem senderState) f
+                    hFlush (senderThem senderState)
+                    sender senderMessageChan (senderState { senderOutSeq = senderOutSeq senderState + 1 })
   where
     blockSize =
-        case ss of
+        case senderState of
             GotKeys { senderCipher = Cipher _ _ bs _ }
                 | bs > 8 -> bs
             _ -> 8
 
+    -- | Turns a message and a pad into a packet with 'doPacket'.
+    --
+    -- Four things will be in the the resulting 'LBS.ByteString'.
+    --  1. a 'long' of the message's length calculated with 'len'.
+    --  2. a 'byte' of the padding length calculated with 'paddingLen'.
+    --  2. a 'raw' of the message.
+    --  2. a 'raw' of the pad.
+    full :: LBS.ByteString -- ^ message to pad and turn into a packet
+         -> LBS.ByteString -- ^ padding
+         -> LBS.ByteString
     full msg pad = doPacket $ do
         long (len msg)
         byte (paddingLen msg)
         raw msg
         raw pad
 
+    -- | Calculate the message length.  Used in 'full' above.
+    --
+    -- The calculation is 1 plus the length of the message plus the length
+    -- of the padding returned from 'paddingLen'.
     len :: LBS.ByteString -> Word32
     len msg = 1 + fromIntegral (LBS.length msg) + fromIntegral (paddingLen msg)
 
