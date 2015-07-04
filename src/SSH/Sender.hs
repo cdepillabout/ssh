@@ -12,6 +12,10 @@ import SSH.Debug
 import SSH.Crypto (Cipher(..), HMAC(..), encrypt)
 import SSH.Packet (Packet, byte, doPacket, long, raw)
 
+-- | Two possible states that a sender can be in with reguards to keys.
+-- 'NoKeys' means that we are not yet using keys to encrypt messages.
+-- 'GotKeys' means that we do have keys, and we may be using them do
+-- encrypt (depending on whether 'senderEncrypting' is 'True' or 'False'.
 data SenderState
     = NoKeys
         { senderThem :: Handle
@@ -27,15 +31,20 @@ data SenderState
         , senderHMAC :: HMAC
         }
 
+-- | Message types that can be passed to 'send' or 'sender'.
+-- The comment for 'sender' describes what is done for each message type.
 data SenderMessage
     = Prepare Cipher BS.ByteString BS.ByteString HMAC
     | StartEncrypting
     | Send LBS.ByteString
     | Stop
 
+-- | TODO: documentation
 class Sender a where
+    -- | TODO: documentation
     send :: SenderMessage -> a ()
 
+    -- | Default implementation is @'send' . 'Send' . 'doPacket'@.
     sendPacket :: Packet () -> a ()
     sendPacket = send . Send . doPacket
 
