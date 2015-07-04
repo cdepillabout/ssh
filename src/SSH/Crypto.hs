@@ -453,8 +453,9 @@ encrypt :: Cipher                            -- ^ Cipher settings to use to do
                                              -- 'AES.crypt' and a strict
                                              -- bytestring of the last
                                              -- block from 'AES.Crypt'.
-                                             -- __TODO__: What does this
-                                             -- contain?
+                                             -- The last block is used as
+                                             -- the new initialization
+                                             -- vector.
 encrypt (Cipher AES CBC bs _) key vector m = (simpleAESEncrypted, lastBlock)
   where
     simpleAESEncrypted :: LBS.ByteString

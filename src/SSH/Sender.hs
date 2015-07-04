@@ -39,6 +39,24 @@ class Sender a where
     sendPacket :: Packet () -> a ()
     sendPacket = send . Send . doPacket
 
+-- | Read values out of the 'Chan SenderMessage' and operate on them
+-- based on 'SenderState'.
+--
+-- What to do in the case of 'SenderMessage':
+--
+--   ['Stop'] Just @return ()@
+--
+--   ['Prepare'] Recursively call 'sender' with a sender state of
+--   'GotKeys'.
+--
+--   ['StartEncryptin'] Recursively call 'sender' with the sender state
+--   where 'senderEncrypting' is set to 'True'.
+--
+--   ['Send'] If 'SenderState' is 'GotKeys', then we encrypt the message
+--   and send it by writing it to the 'senderThem' handle.  If 'SenderState' is
+--   anything else, then we send the message unencrypted by writing it to
+--   the 'senderThem' handle.  In both cases, 'sender' is called
+--   recursively.
 sender :: Chan SenderMessage -> SenderState -> IO ()
 sender senderMessageChan senderState = do
     m <- readChan senderMessageChan
