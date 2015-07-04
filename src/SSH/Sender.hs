@@ -82,25 +82,31 @@ sender senderMessageChan senderState = do
                 rand = randomRIO (0, 255 :: Int)
             intPad <- replicateM paddingLength rand
             let pad = LBS.pack . map fromIntegral $ intPad
-            let f = full msg pad senderState
+            let plainPacket = full msg pad senderState
             case senderState of
-                GotKeys h os True cipher key iv (HMAC _ mac) -> do
-                    dump ("sending encrypted", os, f)
-                    let (encrypted, newVector) = encrypt cipher key iv f
-                    LBS.hPut h . LBS.concat $
-                        [ encrypted
-                        , mac . doPacket $ long os >> raw f
-                        ]
-                    hFlush h
-                    sender senderMessageChan $ senderState
-                        { senderOutSeq = senderOutSeq senderState + 1
-                        , senderVector = newVector
-                        }
+                GotKeys handle outSeq True cipher key iv (HMAC _ mac) -> do
+                    dump ("sending encrypted", outSeq, plainPacket)
+                    let (encrypted, newVector) = encrypt cipher key iv plainPacket
+                        macPacket = long outSeq >> raw plainPacket
+                        messageMac = mac $ doPacket macPacket
+                        fullPacket = encrypted `LBS.append` messageMac
+                        updatedSenderState = senderState
+                            { senderOutSeq = outSeq + 1
+                            , senderVector = newVector
+                            }
+                    LBS.hPut handle fullPacket
+                    hFlush handle
+                    sender senderMessageChan updatedSenderState
                 _ -> do
-                    dump ("sending unencrypted", senderOutSeq senderState, f)
-                    LBS.hPut (senderThem senderState) f
-                    hFlush (senderThem senderState)
-                    sender senderMessageChan (senderState { senderOutSeq = senderOutSeq senderState + 1 })
+                    let outSeq = senderOutSeq senderState
+                        handle = senderThem senderState
+                    dump ("sending unencrypted", outSeq, plainPacket)
+                    let updatedSenderState = senderState
+                            { senderOutSeq = outSeq + 1
+                            }
+                    LBS.hPut handle plainPacket
+                    hFlush handle
+                    sender senderMessageChan updatedSenderState
   where
     -- | Return blocksize needed for a message in 'SenderState'.  If we are
     -- in the state of 'GotKeys', then if the blocksize of the
