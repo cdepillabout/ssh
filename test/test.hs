@@ -25,6 +25,7 @@ import SSH.Channel
 import SSH.Crypto
 import SSH.Session
 
+import Test.SSH.Channel (sshChannelTests)
 import Test.SSH.Crypto (sshCryptoTests)
 import Test.SSH.Internal.Util (sshInternalUtilTests)
 import Test.SSH.Packet (sshPacketTests)
@@ -176,6 +177,7 @@ allTests =
             [ singleKeyAuthTests
             , wrongKeyAuthTest
             ]
+        , sshChannelTests
         , sshCryptoTests
         , sshInternalUtilTests
         , sshNetReaderTests
