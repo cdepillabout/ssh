@@ -102,6 +102,9 @@ netString = netLBS . toLBS
 -- | Prepend a 'Word32' representing the size of a 'LBS.ByteString' to the
 -- front of it.
 --
+-- This is defined in <http://tools.ietf.org/html/rfc4251#section-5
+-- rfc-4251>.
+--
 -- >>> showHexLazyByteString $ netLBS ""
 -- ["0","0","0","0"]
 -- >>> showHexLazyByteString $ netLBS "a"
@@ -111,7 +114,8 @@ netString = netLBS . toLBS
 netLBS :: LBS.ByteString -> LBS.ByteString
 netLBS bs = encode (fromIntegral (LBS.length bs) :: Word32) `LBS.append` bs
 
--- | Convert an arbitrarily large 'Integer' to a 'LBS.ByteString'.
+-- | Convert an arbitrarily large 'Integer' to a 'LBS.ByteString'.  mpint
+-- stands for "multiple precision integers".  It is in two's compliment.
 --
 -- This works by using 'i2osp' to convert an 'Integer' to an octet list,
 -- and then using 'netLBS' to add the length of the 'Integer' on to the
@@ -120,6 +124,10 @@ netLBS bs = encode (fromIntegral (LBS.length bs) :: Word32) `LBS.append` bs
 -- This has some funny logic where if the most significant bit of the octet
 -- list is greater than 127, it adds an additional 0 byte to the front of
 -- the octet list.  You can see it in the examples below with 127 and 128.
+-- (This behaviour is explained in the rfc.)
+
+-- This is defined in <http://tools.ietf.org/html/rfc4251#section-5
+-- rfc-4251>.
 --
 -- >>> showHexLazyByteString $ mpint 1
 -- ["0","0","0","1","1"]
