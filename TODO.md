@@ -3,7 +3,6 @@
 
 - write tests in this order:
 
-    1. SSH/Sender.hs
     1. SSH/Channel.hs
     1. SSH/Session.hs
     1. SSH.hs
@@ -16,6 +15,8 @@
 
 - Things like the KeyPair data type should be fixed so that an RSAKeyPair can't
   be instantiated with something like a DSAPublicKey.
+
+- Didn't actually write any tests for SSH/Sender.hs, so I should actually do that.
 
 - Add interesting things from SSH rfc to documentation:
 
