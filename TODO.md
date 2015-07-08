@@ -15,7 +15,7 @@
 - Do tests/documentation for `makeKey` from `SSH/Packet.hs`.
 
 - Things like the KeyPair data type should be fixed so that an RSAKeyPair can't
-be instantiated with something like a DSAPublicKey.
+  be instantiated with something like a DSAPublicKey.
 
 - Add interesting things from SSH rfc to documentation:
 

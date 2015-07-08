@@ -32,7 +32,9 @@ import Test.SSH.Packet (sshPacketTests)
 import Test.SSH.NetReader (sshNetReaderTests)
 import Test.SSH.Sender (sshSenderTests)
 import Test.Util
-    ( getClientPrivateKeyPair, getClientPublicKeyFileText, hostKeyPair, privateKeyPairFiles, publicKey)
+    ( getClientPrivateKeyPair, getClientPublicKeyFileText, hostKeyPair
+    , privateKeyPairFiles, publicKey
+    )
 
 sshPort :: Num a => a -- used as an Int or a PortNumber
 sshPort = 5032
