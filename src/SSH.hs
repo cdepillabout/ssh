@@ -5,7 +5,7 @@ import Control.Concurrent.Chan
 import Control.Exception (bracket)
 import Control.Monad (replicateM)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.State
+import Control.Monad.Trans.State (evalStateT, get, gets, modify)
 import Data.Digest.Pure.SHA (bytestringDigest, sha1)
 import Crypto.HMAC
 import Crypto.Hash.CryptoAPI
@@ -81,7 +81,8 @@ startedMessage :: PortNumber -> IO ()
 startedMessage p = putStrLn $ "ssh server listening on port " ++ show p
 
 start :: SessionConfig -> ChannelConfig -> PortNumber -> IO ()
-start sc cc p = startConfig (Config sc cc p (startedMessage p))
+start sessionConfig channelConfig port =
+    startConfig . Config sessionConfig channelConfig port $ startedMessage port
 
 startConfig :: Config -> IO ()
 startConfig config = withSocketsDo $ do
