@@ -140,6 +140,9 @@ waitLoop sc cc s = do
 
     waitLoop sc cc s
   where
+    -- | This is defined in
+    -- <https://tools.ietf.org/html/rfc4253#section-7.1 rfc4253 section
+    -- 7.1>.
     pKEXInit :: LBS.ByteString -> Packet ()
     pKEXInit cookie = do
         byte 20
@@ -177,12 +180,19 @@ readLoop = do
                 then shutdownChannels
                 else do
 
+                    -- The following message id values are defined in
+                    -- <https://tools.ietf.org/html/rfc4250#section-4.1.2
+                    -- rfc4250 section 4.1.2>.
                     case msg of
+                        -- transportation layer messages
                         5 -> serviceRequest
                         20 -> kexInit
                         21 -> newKeys
+                        -- ...?
                         30 -> kexDHInit
+                        -- user authentication layer messages
                         50 -> userAuthRequest
+                        -- connection layer messages
                         90 -> channelOpen
                         94 -> dataReceived
                         96 -> eofReceived
