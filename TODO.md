@@ -13,6 +13,9 @@
 
 - Do tests/documentation for `makeKey` from `SSH/Packet.hs`.
 
+- Maybe it would be interesting to try to switch this library over to pipes or
+  conduit?
+
 - Things like the KeyPair data type should be fixed so that an RSAKeyPair can't
   be instantiated with something like a DSAPublicKey.
 
