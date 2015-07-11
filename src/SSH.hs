@@ -444,16 +444,20 @@ userAuthRequest = do
 
   where
 
+    userAuthFail :: [String] -> Packet ()
     userAuthFail ms = do
         byte 51
         string (intercalate "," ms)
         byte 0
 
+    userAuthPKOK :: LBS.ByteString -> LBS.ByteString -> Packet ()
     userAuthPKOK name key = do
         byte 60
         byteString name
         byteString key
 
+    -- | This just sends a SSH_MSG_USERAUTH_SUCCESS.
+    userAuthOK :: Packet ()
     userAuthOK = byte 52
 
 channelOpen :: Session ()
