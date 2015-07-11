@@ -43,11 +43,15 @@ supportedKeyExchanges =
     -- , "diffie-hellman-group-exchange-sha1"
     ]
 
--- | The required
+-- | The supported key algorithms.  Specified in
+-- <https://tools.ietf.org/html/rfc4253#section-6.6 rfc4253 section 6.6>.
 supportedKeyAlgorithms :: [String]
 supportedKeyAlgorithms = ["ssh-rsa", "ssh-dss"]
 
--- | 
+-- | Suporrted Ciphers.
+--
+-- Defined in <https://tools.ietf.org/html/rfc4253#section-6.3 rfc4253
+-- section 6.3>.
 supportedCiphers :: [(String, Cipher)]
 supportedCiphers =
     [ ("aes256-cbc", aesCipher 32)
@@ -73,6 +77,10 @@ supportedMACs =
     bsToLBS :: BS.ByteString -> LBS.ByteString
     bsToLBS = LBS.fromChunks . (: [])
 
+-- | Supported compression algorithms.
+--
+-- Defined in <https://tools.ietf.org/html/rfc4253#section-6.2 rfc4253
+-- section 6.2>.
 supportedCompression :: String
 supportedCompression = "none"
 
@@ -276,6 +284,8 @@ kexInit = do
         byte kpf
         long dummy
 
+-- | This is described in <https://tools.ietf.org/html/rfc4253#section-8
+-- rfc4253 section 8>.
 kexDHInit :: Session ()
 kexDHInit = do
     e <- net readInteger -- other party's public number

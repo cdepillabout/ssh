@@ -66,6 +66,9 @@ class Sender a where
 --   anything else, then we send the message unencrypted by writing it to
 --   the 'senderThem' handle.  In both cases, 'sender' is called
 --   recursively.
+--
+--   This function implements the binary packet protocol described in
+--   <https://tools.ietf.org/html/rfc4253#section-6 rfc4253 section 6>.
 sender :: Chan SenderMessage -> SenderState -> IO ()
 sender senderMessageChan senderState = do
     m <- readChan senderMessageChan
