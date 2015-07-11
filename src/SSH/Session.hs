@@ -83,7 +83,12 @@ instance Sender Session where
 defaultSessionConfig :: SessionConfig
 defaultSessionConfig =
     SessionConfig
-        { scAuthMethods = ["publickey"]
+        { scAuthMethods = ["publickey"]    -- ^ The "publickey" auth method is
+                                           -- defined in
+                                           -- <https://tools.ietf.org/html/rfc4252#section-7
+                                           -- rfc4252 section 7>.
+        -- TODO: Default authorize function should probably not return
+        -- 'True'...
         , scAuthorize = const (return True)
         , scKeyPair = RSAKeyPair (RSAPublicKey 0 0) 0 0 0 0 0 0
         {-\(Password u p) ->-}

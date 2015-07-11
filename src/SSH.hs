@@ -407,6 +407,9 @@ userAuthRequest = do
     case fromLBS method of
         x | not (x `elem` authMethods) -> authfailed
 
+        -- The "publickey" auth method is defined in
+        -- <https://tools.ietf.org/html/rfc4252#section-7 rfc4252 section
+        -- 7>.
         "publickey" -> do
             b <- net readByte
             name <- net readLBS
@@ -434,6 +437,9 @@ userAuthRequest = do
                      if ok then authorized else authfailed
               (True, False) -> sendPacket $ userAuthPKOK name key
 
+        -- The "password" method is described in
+        -- <https://tools.ietf.org/html/rfc4252#section-8 rfc4252 section
+        -- 8>.
         "password" -> do
             0 <- net readByte
             password <- net readLBS
@@ -444,6 +450,12 @@ userAuthRequest = do
 
   where
 
+    -- | Send SSH_MSG_USERAUTH_FAILURE and the list of authentication
+    -- methods that can continue.
+    --
+    -- This is described in
+    -- <https://tools.ietf.org/html/rfc4252#section-5.1 rfc4252 section
+    -- 5.1>.
     userAuthFail :: [String] -> Packet ()
     userAuthFail ms = do
         byte 51
@@ -457,6 +469,10 @@ userAuthRequest = do
         byteString key
 
     -- | This just sends a SSH_MSG_USERAUTH_SUCCESS.
+    --
+    -- This is described in
+    -- <https://tools.ietf.org/html/rfc4252#section-5.1 rfc4252 section
+    -- 5.1>.
     userAuthOK :: Packet ()
     userAuthOK = byte 52
 
