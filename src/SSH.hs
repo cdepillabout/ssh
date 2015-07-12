@@ -386,6 +386,8 @@ serviceRequest = do
 --
 -- This is described in <https://tools.ietf.org/html/rfc4252#section-5
 -- rfc4252 section 5>.
+--
+-- TODO: Take a good look at this.  It seems fishy.
 userAuthRequest :: Session ()
 userAuthRequest = do
     user <- net readLBS
