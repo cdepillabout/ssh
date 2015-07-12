@@ -16,9 +16,11 @@ import System.IO (hPutStr, openTempFile, hClose)
 import Test.Tasty (TestTree, defaultMain, testGroup, withResource)
 import Test.Tasty.HUnit (assertBool, testCase)
 
-import Network.SSH.Client.LibSSH2
+import Network.SSH.Client.LibSSH2 (withSession)
 import Network.SSH.Client.LibSSH2.Errors
+    ( ErrorCode(AUTHENTICATION_FAILED, PUBLICKEY_UNVERIFIED) )
 import Network.SSH.Client.LibSSH2.Foreign
+    ( channelExecute, openChannelSession, publicKeyAuthFile, readChannel )
 
 import qualified SSH
 import SSH.Channel
