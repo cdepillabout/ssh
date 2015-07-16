@@ -230,6 +230,9 @@ readLoop = do
 
         liftIO $ ssSend s Stop
 
+-- | Start doing the actual key exchange initialization.
+-- Defined in <http://tools.ietf.org/html/rfc4253#section-7.1 rfc4253
+-- section 7.1>.
 kexInit :: Session ()
 kexInit = do
     cookie <- net (readBytes 16)
