@@ -21,6 +21,9 @@
 
 - Didn't actually write any tests for SSH/Sender.hs, so I should actually do that.
 
+- There are some default\* methods.  Maybe we should change these to use the
+  Data.Default package.
+
 - Add interesting things from SSH rfc to documentation:
 
     * Message numbers for things from transport layer protocol, user
