@@ -193,7 +193,7 @@ chanLoop c = do
 
             chanLoop c
 
-        -- | This is described in
+        -- This is described in
         -- <https://tools.ietf.org/html/rfc4254#section-5.2 rfc4254 section
         -- 5.2>.
         Data datum -> do
