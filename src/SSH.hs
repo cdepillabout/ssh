@@ -481,6 +481,8 @@ userAuthRequest = do
     userAuthOK :: Packet ()
     userAuthOK = byte 52
 
+-- | Defined in <https://tools.ietf.org/html/rfc4254#section-6.1 rfc4254
+-- section 6.1>.
 channelOpen :: Session ()
 channelOpen = do
     name <- net readLBS
@@ -501,6 +503,8 @@ channelOpen = do
     modify (\s -> s
         { ssChannels = M.insert us chan (ssChannels s) })
 
+-- | Defined in <https://tools.ietf.org/html/rfc4254#section-6 rfc4254
+-- section 6>.
 channelRequest :: Session ()
 channelRequest = do
     chan <- net readULong >>= getChannel
@@ -569,6 +573,8 @@ channelRequest = do
 
     dump ("request processed")
 
+-- | Defined in <https://tools.ietf.org/html/rfc4254#section-6.6 rfc4254
+-- section 6.6>.
 dataReceived :: Session ()
 dataReceived = do
     dump "got data"
