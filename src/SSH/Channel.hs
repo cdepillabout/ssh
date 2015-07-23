@@ -19,21 +19,45 @@ import SSH.Debug
 import SSH.Packet
 import SSH.Sender
 
+-- | Type that represents an SSH channel.
 type Channel = StateT ChannelState IO
 
+-- | The current state of the SSH channel.
 data ChannelState =
     ChannelState
-        { csConfig :: ChannelConfig
-        , csID :: Word32
-        , csTheirID :: Word32
-        , csSend :: SenderMessage -> IO ()
-        , csDataReceived :: Word32
-        , csMaxPacket :: Word32
-        , csWindowSize :: Word32
-        , csTheirWindowSize :: Word32
-        , csUser :: String
-        , csProcess :: Maybe Process
-        , csRedirector :: Maybe ThreadId
+        { csConfig :: ChannelConfig        -- ^ 'ChannelConfig' for this
+                                           -- channel.
+        , csID :: Word32                   -- ^ Our ID for this channel.
+        , csTheirID :: Word32              -- ^ Client's ID for this channel.
+        , csSend :: SenderMessage -> IO () -- ^ Function that will actually
+                                           -- send a message.  This will
+                                           -- probably be the same as the
+                                           -- 'ssSend' function from the
+                                           -- 'SessionState' type.
+        , csDataReceived :: Word32         -- ^ Data received so far in this
+                                           -- window.
+                                           --
+                                           -- __TODO__ Make sure this
+                                           -- documentation is correct.
+        , csMaxPacket :: Word32            -- ^ Max packet size that is allowed
+                                           -- for this channel.
+                                           --
+                                           -- __TODO__ Fix this documentation.
+        , csWindowSize :: Word32           -- ^ Current window size for us.
+                                           --
+                                           -- __TODO__ Make sure this is
+                                           -- correct.
+        , csTheirWindowSize :: Word32      -- ^ Current window size for the
+                                           -- client.
+                                           --
+                                           -- __TODO__ Make sure this is
+                                           -- correct.
+        , csUser :: String                 -- ^ Username of the authenticated
+                                           -- user.
+        , csProcess :: Maybe Process       -- ^ Information for the current
+                                           -- running 'Process' for an
+                                           -- 'Exec' channel.
+        , csRedirector :: Maybe ThreadId   -- ^ __TODO__ What is this?
         }
 
 data ChannelMessage
@@ -43,15 +67,20 @@ data ChannelMessage
     | Interrupt
     deriving Show
 
+-- | Channel configuration that holds a function that handles
+-- 'ChannelRequest's.
+--
+-- A sample 'ChannelConfig' can be found in 'defaultChannelConfig'.
 data ChannelConfig =
     ChannelConfig
         { ccRequestHandler :: Bool -> ChannelRequest -> Channel ()
         }
 
+-- | A sum that represents different possible channel requests.
 data ChannelRequest
-    = Shell
-    | Execute String
-    | Subsystem String
+    = Shell                         -- ^ Spawn a shell.
+    | Execute String                -- ^ Execute a command.
+    | Subsystem String              -- ^ __TODO__ Document this
     | X11Forwarding
     | Environment String String
     | PseudoTerminal String Word32 Word32 Word32 Word32 String
@@ -63,6 +92,8 @@ data ChannelRequest
     | Unknown String
     deriving Show
 
+-- | A datatype that wraps the information returned from
+-- 'runInteractiveCommand'.
 data Process =
     Process
         { pHandle :: ProcessHandle
@@ -76,7 +107,8 @@ instance Sender Channel where
     send :: SenderMessage -> Channel ()
     send m = gets csSend >>= liftIO . ($ m)
 
-
+-- | Default 'ChannelConfig'.  Currently it only accepts 'Execute'
+-- requests.
 defaultChannelConfig :: ChannelConfig
 defaultChannelConfig =
     ChannelConfig
@@ -90,12 +122,27 @@ defaultChannelConfig =
                     when wr channelFail
         }
 
-newChannel :: ChannelConfig -> (SenderMessage -> IO ()) -> Word32 -> Word32 -> Word32 -> Word32 -> String -> IO (Chan ChannelMessage)
+newChannel :: ChannelConfig             -- ^ config for this channel
+           -> (SenderMessage -> IO ())  -- ^ function for doing the sending
+                                        -- on this channel.  See 'csSend'.
+           -> Word32                    -- ^ our channel id.  See 'csID'.
+           -> Word32                    -- ^ client's channel id.  See
+                                        -- 'csTheirID'.
+           -> Word32                    -- ^ Initial window size.  See
+                                        -- 'csWindowSize'.
+           -> Word32                    -- ^ Initial max packet size.  See
+                                        -- 'csMaxPacket'.
+           -> String                    -- ^ User name.  See 'csUser'.
+           -> IO (Chan ChannelMessage)  -- A channel that we can send
+                                        -- 'ChannelMessage's to.
 newChannel config csend us them winSize maxPacket user = do
     chan <- newChan
 
     dump ("new channel", winSize, maxPacket)
     _ <- forkIO $ evalStateT (do
+        -- This is an open channel confirmation message.  It is defined in
+        -- <https://tools.ietf.org/html/rfc4254#section-5.1 rfc4254 section
+        -- 5.1>.
         sendPacket $ do
             byte 91
             long them
@@ -120,6 +167,19 @@ newChannel config csend us them winSize maxPacket user = do
 
     return chan
 
+-- | Loop over the 'Chan' and continuously read 'ChannelMessage'.  Act on
+-- the 'ChannelMessage'.
+--
+-- Here is what will happen for each 'ChannelMessage':
+--
+--   ['Request'] Call the request handler in 'ccRequestHandler'.
+--
+--   ['Data'] Update 'csDataReceived' with the new data and adjust the
+--   window size.
+--
+--   ['EOF'] Close the 'Process's stdin to indicate EOF.
+--
+--   ['Interrupt'] Close the redirecting process and the process.
 chanLoop :: Chan ChannelMessage -> Channel ()
 chanLoop c = do
     msg <- liftIO (readChan c)
@@ -133,6 +193,9 @@ chanLoop c = do
 
             chanLoop c
 
+        -- | This is described in
+        -- <https://tools.ietf.org/html/rfc4254#section-5.2 rfc4254 section
+        -- 5.2>.
         Data datum -> do
             modify $ \cs -> cs
                 { csDataReceived =
@@ -191,6 +254,9 @@ chanLoop c = do
                     liftIO (hClose pin >> terminateProcess phdl)
 
 
+-- | This sends a message to the client that represents the error data.
+-- This is defined in <https://tools.ietf.org/html/rfc4254#section-5.2
+-- rfc4254 section 5.2>.
 channelError :: String -> Channel ()
 channelError msg = do
     target <- gets csTheirID
@@ -200,6 +266,9 @@ channelError msg = do
         long 1
         string (msg ++ "\r\n")
 
+-- | This sends data to the client.
+-- Defined in <https://tools.ietf.org/html/rfc4254#section-5.2 rfc4254
+-- section 5.2>.
 channelMessage :: String -> Channel ()
 channelMessage msg = do
     target <- gets csTheirID
@@ -208,6 +277,9 @@ channelMessage msg = do
         long target
         string (msg ++ "\r\n")
 
+-- | Send a failure response to a channel specific request from a client.
+-- Defined in <https://tools.ietf.org/html/rfc4254#section-5.4 rfc4254
+-- section 5.4>.
 channelFail :: Channel ()
 channelFail = do
     target <- gets csTheirID
@@ -215,6 +287,9 @@ channelFail = do
         byte 100
         long target
 
+-- | Send a success response to a channel specific request from a client.
+-- Defined in <https://tools.ietf.org/html/rfc4254#section-5.4 rfc4254
+-- section 5.4>.
 channelSuccess :: Channel ()
 channelSuccess = do
     target <- gets csTheirID
@@ -222,6 +297,9 @@ channelSuccess = do
         byte 99
         long target
 
+-- | This sends the EOF and CLOSE messages to the client.
+-- Defined in <https://tools.ietf.org/html/rfc4254#section-5.3 rfc4254
+-- section 5.3>.
 channelDone :: Channel ()
 channelDone = do
     target <- gets csTheirID
