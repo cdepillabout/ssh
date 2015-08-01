@@ -7,7 +7,7 @@ import Data.Word (Word8)
 
 -- | Message IDs for ssh.
 
-data SSHMsgNumber = SSHMsgNumber Word8
+newtype SSHMsgNumber = SSHMsgNumber Word8 deriving Show
 
 -- | Message IDs for the SSH transport protocol.
 
