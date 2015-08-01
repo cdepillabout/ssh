@@ -233,6 +233,12 @@ readLoop = do
 -- | Start doing the actual key exchange initialization.
 -- Defined in <http://tools.ietf.org/html/rfc4253#section-7.1 rfc4253
 -- section 7.1>.
+--
+-- We can also do key re-exchanges like in
+-- <http://tools.ietf.org/html/rfc4253#section-9 rfc4253 section 9>.
+--
+-- TODO: Key exchanges should be happening after we exchange a gigabyte of
+-- data or after an hour, whichever comes sooner.
 kexInit :: Session ()
 kexInit = do
     cookie <- net (readBytes 16)
@@ -279,7 +285,9 @@ kexInit = do
                             ]
             _ -> error "impossible state transition; expected Initial"
   where
+    match :: Eq a => [a] -> [a] -> a
     match n h = head . filter (`elem` h) $ n
+
     reconstruct c nls kpf dummy = doPacket $ do
         byte 20
         raw c
@@ -287,7 +295,8 @@ kexInit = do
         byte kpf
         long dummy
 
--- | This is described in <https://tools.ietf.org/html/rfc4253#section-8
+-- | This is described in <http://tools.ietf.org/html/rfc4253#section-7.1
+-- rfc4253 section 7> and <https://tools.ietf.org/html/rfc4253#section-8
 -- rfc4253 section 8>.
 kexDHInit :: Session ()
 kexDHInit = do
@@ -410,7 +419,7 @@ userAuthRequest = do
         authfailed = sendPacket $ userAuthFail authMethods
 
     case fromLBS method of
-        x | not (x `elem` authMethods) -> authfailed
+        x | x `notElem` authMethods -> authfailed
 
         -- The "publickey" auth method is defined in
         -- <https://tools.ietf.org/html/rfc4252#section-7 rfc4252 section
@@ -516,10 +525,7 @@ channelRequest = do
     case fromLBS typ of
         "pty-req" -> do
             term <- net readString
-            cols <- net readULong
-            rows <- net readULong
-            width <- net readULong
-            height <- net readULong
+            [cols, rows, width, height] <- replicateM 4 $ net readULong
             modes <- net readString
             sendRequest (PseudoTerminal term cols rows width height modes)
 
