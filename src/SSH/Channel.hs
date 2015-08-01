@@ -3,16 +3,21 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 module SSH.Channel where
 
-import Control.Concurrent
-import Control.Exception
+import Control.Concurrent (
+    Chan, ThreadId, forkIO, killThread, newChan, readChan, writeChan,
+    )
+import Control.Exception (IOException, catch)
 import Control.Monad (void, when)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.State
-import Data.Word
-import System.Exit
-import System.IO
-import System.Process (ProcessHandle, runInteractiveCommand,
-                       terminateProcess, waitForProcess,)
+import Control.Monad.Trans.State (StateT, evalStateT, get, gets, modify)
+import Data.Word (Word32)
+import System.Exit (ExitCode(ExitFailure, ExitSuccess))
+import System.IO (
+    Handle, hClose, hFlush, hGetChar, hIsEOF, hReady, hSetBinaryMode,
+    )
+import System.Process (
+    ProcessHandle, runInteractiveCommand, terminateProcess, waitForProcess,
+    )
 import qualified Data.ByteString.Lazy as LBS
 
 import SSH.Debug
