@@ -1,24 +1,27 @@
 module SSH where
 
 import Control.Concurrent (forkIO)
-import Control.Concurrent.Chan
+import Control.Concurrent.Chan (newChan, writeChan)
 import Control.Exception (bracket)
 import Control.Monad (replicateM)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.State (evalStateT, get, gets, modify)
-import Data.Digest.Pure.SHA (bytestringDigest, sha1)
-import Crypto.HMAC
-import Crypto.Hash.CryptoAPI
-import Data.List (intercalate)
-import Data.List.Split (splitOn)
-import Network
-import OpenSSL.BN (randIntegerOneToNMinusOne, modexp)
-import System.IO
-import System.Random
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
+import Data.Digest.Pure.SHA (bytestringDigest, sha1)
 import qualified Data.Map as M
 import qualified Data.Serialize as S
+import Crypto.HMAC (MacKey(..), hmac)
+import Crypto.Hash.CryptoAPI (MD5, SHA1)
+import Data.List (intercalate)
+import Data.List.Split (splitOn)
+import Network (
+    PortID(PortNumber), PortNumber, Socket, accept,listenOn, sClose,
+    withSocketsDo,
+    )
+import OpenSSL.BN (randIntegerOneToNMinusOne, modexp)
+import System.IO (hFlush, hGetLine, hIsEOF, hPutStr, hSetBinaryMode)
+import System.Random (randomRIO)
 
 import SSH.Channel
 import SSH.Crypto
