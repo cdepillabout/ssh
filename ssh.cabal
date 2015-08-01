@@ -49,6 +49,7 @@ library
                   , SSH.Crypto
                   , SSH.Internal.Util
                   , SSH.NetReader
+                  , SSH.Numbers
                   , SSH.Packet
                   , SSH.Sender
                   , SSH.Session
