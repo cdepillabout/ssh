@@ -9,11 +9,11 @@ addons:
 
 matrix:
     include:
-        # - ghc: 7.6
+        - ghc: 7.6
         # There is a weird problem with the linker on ghc-7.8 and ghc-7.10.
         # that makes test/EmbedTree.hs not be able to be linked with ld,
         # possibly because it is using Template Haskell?
-        - ghc: 7.8
+        # - ghc: 7.8
 
 install:
     - cabal update
