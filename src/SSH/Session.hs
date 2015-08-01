@@ -1,12 +1,12 @@
 {-# LANGUAGE FlexibleInstances, TypeSynonymInstances #-}
 module SSH.Session where
 
-import Control.Concurrent.Chan
-import Control.Monad.IO.Class
-import Control.Monad.Trans.State
+import Control.Concurrent.Chan (Chan)
+import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Trans.State (StateT, get, gets, modify, runState)
 import Data.Binary (decode, encode)
-import Data.Word
-import System.IO
+import Data.Word (Word32, Word8)
+import System.IO (Handle)
 import qualified Codec.Crypto.SimpleAES as A
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
