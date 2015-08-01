@@ -1,90 +1,94 @@
 module SSH.Numbers where
 
+import Data.Word (Word8)
+
 -- | Numbers used in the SSH protocol as defined in
 -- <http://tools.ietf.org/html/rfc4250 rfc4250>.
 
 -- | Message IDs for ssh.
 
+data SSHMsgNumber = SSHMsgNumber Word8
+
 -- | Message IDs for the SSH transport protocol.
 
-sshMsgDisconnect :: Word8
-sshMsgDisconnect = 1
+sshMsgDisconnect :: SSHMsgNumber
+sshMsgDisconnect = SSHMsgNumber 1
 
-sshMsgIgnore :: Word8
-sshMsgIgnore = 2
+sshMsgIgnore :: SSHMsgNumber
+sshMsgIgnore = SSHMsgNumber 2
 
-sshMsgUnimplemented :: Word8
-sshMsgUnimplemented = 3
+sshMsgUnimplemented :: SSHMsgNumber
+sshMsgUnimplemented = SSHMsgNumber 3
 
-sshMsgDebug :: Word8
-sshMsgDebug = 4
+sshMsgDebug :: SSHMsgNumber
+sshMsgDebug = SSHMsgNumber 4
 
-sshMsgServiceRequest :: Word8
-sshMsgServiceRequest = 5
+sshMsgServiceRequest :: SSHMsgNumber
+sshMsgServiceRequest = SSHMsgNumber 5
 
-sshMsgServiceAccept :: Word8
-sshMsgServiceAccept = 6
+sshMsgServiceAccept :: SSHMsgNumber
+sshMsgServiceAccept = SSHMsgNumber 6
 
-sshMsgKexinit :: Word8
-sshMsgKexinit = 20
+sshMsgKexinit :: SSHMsgNumber
+sshMsgKexinit = SSHMsgNumber 20
 
-sshMsgNewkeys :: Word8
-sshMsgNewkeys = 21
+sshMsgNewkeys :: SSHMsgNumber
+sshMsgNewkeys = SSHMsgNumber 21
 
 -- | Message IDs for the SSH authentication protocol.
 
-sshMsgUserauthRequest :: Word8
-sshMsgUserauthRequest = 50
+sshMsgUserauthRequest :: SSHMsgNumber
+sshMsgUserauthRequest = SSHMsgNumber 50
 
-sshMsgUserauthFailure :: Word8
-sshMsgUserauthFailure = 51
+sshMsgUserauthFailure :: SSHMsgNumber
+sshMsgUserauthFailure = SSHMsgNumber 51
 
-sshMsgUserauthSuccess :: Word8
-sshMsgUserauthSuccess = 52
+sshMsgUserauthSuccess :: SSHMsgNumber
+sshMsgUserauthSuccess = SSHMsgNumber 52
 
-sshMsgUserauthBanner :: Word8
-sshMsgUserauthBanner = 53
+sshMsgUserauthBanner :: SSHMsgNumber
+sshMsgUserauthBanner = SSHMsgNumber 53
 
 -- | Message IDs for the SSH connection protocol.
 
-sshMsgGlobalRequest :: Word8
-sshMsgGlobalRequest = 80
+sshMsgGlobalRequest :: SSHMsgNumber
+sshMsgGlobalRequest = SSHMsgNumber 80
 
-sshMsgRequestSuccess :: Word8
-sshMsgRequestSuccess = 81
+sshMsgRequestSuccess :: SSHMsgNumber
+sshMsgRequestSuccess = SSHMsgNumber 81
 
-sshMsgRequestFailure :: Word8
-sshMsgRequestFailure = 82
+sshMsgRequestFailure :: SSHMsgNumber
+sshMsgRequestFailure = SSHMsgNumber 82
 
-sshMsgChannelOpen :: Word8
-sshMsgChannelOpen = 90
+sshMsgChannelOpen :: SSHMsgNumber
+sshMsgChannelOpen = SSHMsgNumber 90
 
-sshMsgChannelOpenConfirmation :: Word8
-sshMsgChannelOpenConfirmation = 91
+sshMsgChannelOpenConfirmation :: SSHMsgNumber
+sshMsgChannelOpenConfirmation = SSHMsgNumber 91
 
-sshMsgChannelOpenFailure :: Word8
-sshMsgChannelOpenFailure = 92
+sshMsgChannelOpenFailure :: SSHMsgNumber
+sshMsgChannelOpenFailure = SSHMsgNumber 92
 
-sshMsgChannelWindowAdjust :: Word8
-sshMsgChannelWindowAdjust = 93
+sshMsgChannelWindowAdjust :: SSHMsgNumber
+sshMsgChannelWindowAdjust = SSHMsgNumber 93
 
-sshMsgChannelData :: Word8
-sshMsgChannelData = 94
+sshMsgChannelData :: SSHMsgNumber
+sshMsgChannelData = SSHMsgNumber 94
 
-sshMsgChannelExtendedData :: Word8
-sshMsgChannelExtendedData = 95
+sshMsgChannelExtendedData :: SSHMsgNumber
+sshMsgChannelExtendedData = SSHMsgNumber 95
 
-sshMsgChannelEof :: Word8
-sshMsgChannelEof = 96
+sshMsgChannelEof :: SSHMsgNumber
+sshMsgChannelEof = SSHMsgNumber 96
 
-sshMsgChannelClose :: Word8
-sshMsgChannelClose = 97
+sshMsgChannelClose :: SSHMsgNumber
+sshMsgChannelClose = SSHMsgNumber 97
 
-sshMsgChannelRequest :: Word8
-sshMsgChannelRequest = 98
+sshMsgChannelRequest :: SSHMsgNumber
+sshMsgChannelRequest = SSHMsgNumber 98
 
-sshMsgChannelSuccess :: Word8
-sshMsgChannelSuccess = 99
+sshMsgChannelSuccess :: SSHMsgNumber
+sshMsgChannelSuccess = SSHMsgNumber 99
 
-sshMsgChannelFailure :: Word8
-sshMsgChannelFailure = 100
+sshMsgChannelFailure :: SSHMsgNumber
+sshMsgChannelFailure = SSHMsgNumber 100
