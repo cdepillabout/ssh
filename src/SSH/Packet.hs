@@ -1,3 +1,6 @@
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE KindSignatures #-}
+
 module SSH.Packet where
 
 import Control.Monad.Trans.Writer (Writer, execWriter, tell)
@@ -177,3 +180,18 @@ makeKey s h c = makeKey' initial
         , makeKey' (bytestringDigest . sha1 . LBS.concat $ [mpint s, h, acc])
         ]
 
+
+-------------------------------------------------------------------------------
+
+data ChannelType = RecipientChannel | SenderChannel
+
+data ChannelNumber (a :: ChannelType) = ChannelNumber Word32
+
+-- data RecipientChannel = RecipientChannel Word32
+
+-- | SSH Packets
+data PacketChannelOpenFailure =
+        PacketChannelOpenFailure
+            { _packetChannelOpenFailureRecipientChannel :: ChannelNumber 'RecipientChannel
+            , _packetChannelOpenFailureSenderChannel :: ChannelNumber 'SenderChannel
+            }
