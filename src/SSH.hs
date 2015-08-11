@@ -103,18 +103,14 @@ data Config =
         cReadyAction :: forall m . (MonadIO m) => m ()
     }
 
-startedMessage' :: (MonadIO m, MonadReader PortNumber m) => m ()
-startedMessage' = do
+startedMessage :: (MonadIO m, MonadReader PortNumber m) => m ()
+startedMessage = do
         portNumberString <- asks show
         liftIO . putStrLn $ "ssh server listening on port " ++ portNumberString
 
-
--- startedMessage :: (MonadIO m) => PortNumber -> m ()
--- startedMessage p = liftIO . putStrLn $ "ssh server listening on port " ++ show p
-
 start :: SessionConfig -> ChannelConfig -> PortNumber -> IO ()
 start sessionConfig channelConfig port =
-    startConfig $ Config sessionConfig channelConfig port $ runReaderT startedMessage' port
+    startConfig $ Config sessionConfig channelConfig port $ runReaderT startedMessage port
 
 startConfig :: Config -> IO ()
 startConfig config = withSocketsDo $
