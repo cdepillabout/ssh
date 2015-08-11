@@ -73,7 +73,10 @@ library
                   , cryptohash-cryptoapi
                   , HsOpenSSL >= 0.8
                   , integer-gmp >= 0.5 && < 1.1
+                  , lens
+                  , lifted-base
                   , mtl
+                  , monad-control
                   , network
                   , process
                   , RSA >= 1.2 && < 1.3

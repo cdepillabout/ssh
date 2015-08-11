@@ -1,15 +1,19 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module SSH where
 
 import Control.Concurrent (forkIO)
 import Control.Concurrent.Chan (newChan, writeChan)
-import Control.Exception (bracket)
+import Control.Exception.Lifted (bracket)
+import Control.Lens (makeClassy)
 import Control.Monad (replicateM)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Reader (runReaderT)
 import Control.Monad.Reader.Class (MonadReader, asks)
+import Control.Monad.Trans.Control (MonadBaseControl)
 import Control.Monad.Trans.State (evalStateT, get, gets, modify)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
@@ -22,7 +26,6 @@ import Data.List (intercalate)
 import Data.List.Split (splitOn)
 import Network (
     PortID(PortNumber), PortNumber, Socket, accept,listenOn, sClose,
-    withSocketsDo,
     )
 import OpenSSL.BN (randIntegerOneToNMinusOne, modexp)
 import System.IO (hFlush, hGetLine, hIsEOF, hPutStr, hSetBinaryMode)
@@ -97,37 +100,44 @@ supportedLanguages = ""
 
 data Config =
     Config {
-        cSession     :: SessionConfig,
-        cChannel     :: ChannelConfig,
-        cPort        :: PortNumber,
-        cReadyAction :: forall m . (MonadIO m) => m ()
+        _configSession     :: SessionConfig,
+        _configChannel     :: ChannelConfig,
+        _configPort        :: PortNumber,
+        _configReadyAction :: forall m . (MonadIO m) => m ()
     }
+
+makeClassy ''Config
+
 
 startedMessage :: (MonadIO m, MonadReader PortNumber m) => m ()
 startedMessage = do
         portNumberString <- asks show
         liftIO . putStrLn $ "ssh server listening on port " ++ portNumberString
 
-start :: (MonadIO m) => SessionConfig -> ChannelConfig -> PortNumber -> m ()
+start :: (MonadIO m, MonadBaseControl IO m) => SessionConfig -> ChannelConfig -> PortNumber -> m ()
 start sessionConfig channelConfig port =
-    startConfig $ Config sessionConfig channelConfig port $ runReaderT startedMessage port
+    runReaderT startConfig $ Config sessionConfig channelConfig port $ runReaderT startedMessage port
 
-startConfig :: Config -> IO ()
-startConfig config = withSocketsDo $
+startConfig :: forall r m . (MonadReader r m, HasConfig r, MonadBaseControl IO m, MonadIO m) => m ()
+startConfig =
     -- waitLoop never actually exits so we could just use finally,
     -- but bracket seems more future proof
     bracket aquire release use
   where
-    aquire :: IO Socket
-    aquire = listenOn . PortNumber $ cPort config
+    aquire :: (MonadIO m, MonadReader r m, HasConfig r) => m Socket
+    aquire = do
+        -- port <- asks _configPort
+        port <- undefined
+        liftIO . listenOn $ PortNumber port
 
-    release :: Socket -> IO ()
-    release = sClose
+    release :: (MonadIO m) => Socket -> m ()
+    release = liftIO . sClose
 
-    use :: Socket -> IO ()
+    use :: (MonadIO m) => Socket -> m ()
     use socket = do
-        cReadyAction config
-        waitLoop (cSession config) (cChannel config) socket
+        c <- undefined
+        _configReadyAction c
+        liftIO $ waitLoop (_configSession c) (_configChannel c) socket
 
 waitLoop :: SessionConfig -> ChannelConfig -> Socket -> IO ()
 waitLoop sc cc s = do
