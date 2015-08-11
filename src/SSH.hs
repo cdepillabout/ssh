@@ -8,7 +8,7 @@ module SSH where
 import Control.Concurrent (forkIO)
 import Control.Concurrent.Chan (newChan, writeChan)
 import Control.Exception.Lifted (bracket)
-import Control.Lens (makeClassy)
+import Control.Lens ((^.), (.~), Lens', lens, makeClassy, set, view)
 import Control.Monad (replicateM)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Reader (runReaderT)
@@ -98,16 +98,53 @@ supportedCompression = "none"
 supportedLanguages :: String
 supportedLanguages = ""
 
+data SetupConfig =
+    SetupConfig {
+        _setupConfigSession :: SessionConfig,
+        _setupConfigChannel :: ChannelConfig,
+        _setupConfigPort    :: PortNumber
+    }
+makeClassy ''SetupConfig
+
 data Config =
     Config {
-        _configSession     :: SessionConfig,
-        _configChannel     :: ChannelConfig,
-        _configPort        :: PortNumber,
-        _configReadyAction :: forall m . (MonadIO m) => m ()
+        _configSession :: SessionConfig,
+        _configChannel :: ChannelConfig,
+        _configSocket  :: Socket
     }
 
 makeClassy ''Config
 
+class HasSessionConfig a where
+    sessionConfig :: Lens' a SessionConfig
+
+instance HasSessionConfig SessionConfig where
+    sessionConfig = id
+instance HasSessionConfig SetupConfig where
+    sessionConfig = setupConfigSession
+instance HasSessionConfig Config where
+    sessionConfig = configSession
+
+class HasChannelConfig a where
+    channelConfig :: Lens' a ChannelConfig
+
+instance HasChannelConfig ChannelConfig where
+    channelConfig = id
+instance HasChannelConfig SetupConfig where
+    channelConfig = setupConfigChannel
+instance HasChannelConfig Config where
+    channelConfig = configChannel
+
+setupConfigToConfig :: Socket -> Lens' SetupConfig Config
+setupConfigToConfig socket = lens getter setter
+  where
+    getter :: SetupConfig -> Config
+    getter setupConf =
+        Config (setupConf ^. sessionConfig) (setupConf ^. channelConfig) socket
+
+    setter :: SetupConfig -> Config -> SetupConfig
+    setter setupConf conf =
+        sessionConfig .~ conf ^. sessionConfig $ channelConfig .~ conf ^. channelConfig $ setupConf
 
 startedMessage :: (MonadIO m, MonadReader PortNumber m) => m ()
 startedMessage = do
@@ -115,29 +152,30 @@ startedMessage = do
         liftIO . putStrLn $ "ssh server listening on port " ++ portNumberString
 
 start :: (MonadIO m, MonadBaseControl IO m) => SessionConfig -> ChannelConfig -> PortNumber -> m ()
-start sessionConfig channelConfig port =
-    runReaderT startConfig $ Config sessionConfig channelConfig port $ runReaderT startedMessage port
+start sessionConf channelConf port = do
+    let readyAction = runReaderT startedMessage port
+        go = startConfig readyAction
+        setupConf = SetupConfig sessionConf channelConf port
+    runReaderT go setupConf
 
-startConfig :: forall r m . (MonadReader r m, HasConfig r, MonadBaseControl IO m, MonadIO m) => m ()
-startConfig =
+startConfig :: forall r m . (MonadReader r m, HasSetupConfig r, MonadBaseControl IO m, MonadIO m) => m () -> m ()
+startConfig readyAction =
     -- waitLoop never actually exits so we could just use finally,
     -- but bracket seems more future proof
     bracket aquire release use
   where
-    aquire :: (MonadIO m, MonadReader r m, HasConfig r) => m Socket
-    aquire = do
-        -- port <- asks _configPort
-        port <- undefined
-        liftIO . listenOn $ PortNumber port
+    aquire :: (MonadIO m, MonadReader r m, HasSetupConfig r) => m Socket
+    aquire = liftIO . listenOn . PortNumber =<< view setupConfigPort
 
     release :: (MonadIO m) => Socket -> m ()
     release = liftIO . sClose
 
-    use :: (MonadIO m) => Socket -> m ()
+    use :: (MonadIO m, MonadReader r m, HasSetupConfig r) => Socket -> m ()
     use socket = do
-        c <- undefined
-        _configReadyAction c
-        liftIO $ waitLoop (_configSession c) (_configChannel c) socket
+        readyAction
+        session <- view setupConfigSession
+        channel <- view setupConfigChannel
+        liftIO $ waitLoop session channel socket
 
 waitLoop :: SessionConfig -> ChannelConfig -> Socket -> IO ()
 waitLoop sc cc s = do
