@@ -108,7 +108,7 @@ startedMessage = do
         portNumberString <- asks show
         liftIO . putStrLn $ "ssh server listening on port " ++ portNumberString
 
-start :: SessionConfig -> ChannelConfig -> PortNumber -> IO ()
+start :: (MonadIO m) => SessionConfig -> ChannelConfig -> PortNumber -> m ()
 start sessionConfig channelConfig port =
     startConfig $ Config sessionConfig channelConfig port $ runReaderT startedMessage port
 
