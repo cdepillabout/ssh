@@ -1,10 +1,15 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE RankNTypes #-}
+
 module SSH where
 
 import Control.Concurrent (forkIO)
 import Control.Concurrent.Chan (newChan, writeChan)
 import Control.Exception (bracket)
 import Control.Monad (replicateM)
-import Control.Monad.IO.Class (liftIO)
+import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.Reader (runReaderT)
+import Control.Monad.Reader.Class (MonadReader, asks)
 import Control.Monad.Trans.State (evalStateT, get, gets, modify)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
@@ -95,28 +100,38 @@ data Config =
         cSession     :: SessionConfig,
         cChannel     :: ChannelConfig,
         cPort        :: PortNumber,
-        cReadyAction :: IO ()
+        cReadyAction :: forall m . (MonadIO m) => m ()
     }
 
+startedMessage' :: (MonadIO m, MonadReader PortNumber m) => m ()
+startedMessage' = do
+        portNumberString <- asks show
+        liftIO . putStrLn $ "ssh server listening on port " ++ portNumberString
 
-startedMessage :: PortNumber -> IO ()
-startedMessage p = putStrLn $ "ssh server listening on port " ++ show p
+
+-- startedMessage :: (MonadIO m) => PortNumber -> m ()
+-- startedMessage p = liftIO . putStrLn $ "ssh server listening on port " ++ show p
 
 start :: SessionConfig -> ChannelConfig -> PortNumber -> IO ()
 start sessionConfig channelConfig port =
-    startConfig . Config sessionConfig channelConfig port $ startedMessage port
+    startConfig $ Config sessionConfig channelConfig port $ runReaderT startedMessage' port
 
 startConfig :: Config -> IO ()
-startConfig config = withSocketsDo $ do
+startConfig config = withSocketsDo $
     -- waitLoop never actually exits so we could just use finally,
     -- but bracket seems more future proof
-    bracket
-       (listenOn (PortNumber (cPort config)))
-       sClose
-       (\sock -> do
-           cReadyAction config
-           waitLoop (cSession config) (cChannel config) sock
-       )
+    bracket aquire release use
+  where
+    aquire :: IO Socket
+    aquire = listenOn . PortNumber $ cPort config
+
+    release :: Socket -> IO ()
+    release = sClose
+
+    use :: Socket -> IO ()
+    use socket = do
+        cReadyAction config
+        waitLoop (cSession config) (cChannel config) socket
 
 waitLoop :: SessionConfig -> ChannelConfig -> Socket -> IO ()
 waitLoop sc cc s = do

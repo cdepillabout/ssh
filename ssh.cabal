@@ -18,7 +18,7 @@ cabal-version:       >= 1.10
 stability:           Unstable
 tested-with:         GHC == 7.6.3, GHC == 7.8.4, GHC == 7.10.1
 extra-source-files:  CHANGES
-                   , README
+                   , README.md
                    , test/keys/host
                    , test/keys/host.pub
                    , test/keys/client/id_rsa_test
@@ -73,6 +73,7 @@ library
                   , cryptohash-cryptoapi
                   , HsOpenSSL >= 0.8
                   , integer-gmp >= 0.5 && < 1.1
+                  , mtl
                   , network
                   , process
                   , RSA >= 1.2 && < 1.3
