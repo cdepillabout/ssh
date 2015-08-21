@@ -47,14 +47,20 @@ library
   exposed-modules:  SSH
                   , SSH.Channel
                   , SSH.Crypto
+                  , SSH.Debug
                   , SSH.Internal.Util
                   , SSH.NetReader
                   , SSH.Numbers
                   , SSH.Packet
                   , SSH.Sender
+                  , SSH.Server
+                  , SSH.Server.Loop
+                  , SSH.Server.Start
+                  , SSH.Server.Types
                   , SSH.Session
+                  , SSH.Supported
 
-  other-modules:    SSH.Debug
+  other-modules:    
 
   ghc-options:      -Wall -O2
   other-extensions: TemplateHaskell
