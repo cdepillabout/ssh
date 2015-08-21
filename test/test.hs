@@ -7,7 +7,7 @@ import Control.Applicative
 #endif
 
 import Control.Concurrent (forkIO, killThread)
-import Control.Concurrent.MVar (newEmptyMVar, takeMVar, putMVar)
+import Control.Concurrent.MVar (MVar, newEmptyMVar, takeMVar, putMVar)
 import Control.Exception (bracket, try)
 import Control.Monad (when)
 import Data.ByteString.Char8 (pack)
@@ -45,29 +45,29 @@ withOneUserServer :: KeyPair -> PublicKey -> TestTree -> TestTree
 withOneUserServer hostKp acceptedKey test =
     withResource
         (do startedSignal <- newEmptyMVar
-            tid <- forkIO $ SSH.startConfig (config startedSignal)
+            tid <- forkIO $ SSH.startConfig (readyAction startedSignal) config
             takeMVar startedSignal
             return tid
         )
         killThread
         (const test)
   where
-    config startedSignal =
-        SSH.Config
-          { SSH.cSession = session
-          , SSH.cChannel = channel
-          , SSH.cPort = sshPort
-          , SSH.cReadyAction = putMVar startedSignal ()
-          }
+    config :: SSH.SetupConfig
+    config = SSH.createSetupConfig sessionConf channelConf sshPort
 
-    session =
+    readyAction :: MVar () -> IO ()
+    readyAction startedSignal = putMVar startedSignal ()
+
+    sessionConf :: SessionConfig
+    sessionConf =
         SessionConfig
           { scAuthMethods = ["publickey", "password"]
           , scAuthorize = sshAuthorize
           , scKeyPair = hostKp
           }
 
-    channel =
+    channelConf :: ChannelConfig
+    channelConf =
         ChannelConfig
           { ccRequestHandler = channelRequest
           }

@@ -11,8 +11,9 @@ import Control.Exception.Lifted (bracket)
 import Control.Lens ((^.), (.~), Lens', lens, makeClassy, set, view)
 import Control.Monad (replicateM)
 import Control.Monad.IO.Class (MonadIO, liftIO)
-import Control.Monad.Reader (runReaderT)
+import Control.Monad.Reader (ReaderT, runReaderT)
 import Control.Monad.Reader.Class (MonadReader, asks)
+import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Control (MonadBaseControl)
 import Control.Monad.Trans.State (evalStateT, get, gets, modify)
 import qualified Data.ByteString as BS
@@ -135,6 +136,14 @@ instance HasChannelConfig SetupConfig where
 instance HasChannelConfig Config where
     channelConfig = configChannel
 
+createSetupConfig :: SessionConfig -> ChannelConfig -> PortNumber -> SetupConfig
+createSetupConfig sessionConf channelConf portNumber =
+    SetupConfig
+        { _setupConfigSession = sessionConf
+        , _setupConfigChannel = channelConf
+        , _setupConfigPort = portNumber
+        }
+
 setupConfigToConfig :: Socket -> Lens' SetupConfig Config
 setupConfigToConfig socket = lens getter setter
   where
@@ -146,35 +155,39 @@ setupConfigToConfig socket = lens getter setter
     setter setupConf conf =
         sessionConfig .~ conf ^. sessionConfig $ channelConfig .~ conf ^. channelConfig $ setupConf
 
-startedMessage :: (MonadIO m, MonadReader PortNumber m) => m ()
-startedMessage = do
-        portNumberString <- asks show
+startedMessage :: MonadIO m => PortNumber -> m ()
+startedMessage portNumber = do
+        let portNumberString = show portNumber
         liftIO . putStrLn $ "ssh server listening on port " ++ portNumberString
 
-start :: (MonadIO m, MonadBaseControl IO m) => SessionConfig -> ChannelConfig -> PortNumber -> m ()
-start sessionConf channelConf port = do
-    let readyAction = runReaderT startedMessage port
-        go = startConfig readyAction
-        setupConf = SetupConfig sessionConf channelConf port
-    runReaderT go setupConf
+start :: forall m . (MonadIO m, MonadBaseControl IO m) => SessionConfig -> ChannelConfig -> PortNumber -> m ()
+start sessionConf channelConf port =
+    let setupConf = createSetupConfig sessionConf channelConf port
+    in startConfig readyAction setupConf
+  where
+    readyAction :: IO ()
+    readyAction = startedMessage port
 
-startConfig :: forall r m . (MonadReader r m, HasSetupConfig r, MonadBaseControl IO m, MonadIO m) => m () -> m ()
-startConfig readyAction =
+startConfig :: forall m . (MonadBaseControl IO m, MonadIO m)
+            => IO ()
+            -> SetupConfig
+            -> m ()
+startConfig readyAction setupConf =
     -- waitLoop never actually exits so we could just use finally,
     -- but bracket seems more future proof
     bracket aquire release use
   where
-    aquire :: (MonadIO m, MonadReader r m, HasSetupConfig r) => m Socket
-    aquire = liftIO . listenOn . PortNumber =<< view setupConfigPort
+    aquire :: (MonadIO m) => m Socket
+    aquire = liftIO . listenOn . PortNumber $ view setupConfigPort setupConf
 
     release :: (MonadIO m) => Socket -> m ()
     release = liftIO . sClose
 
-    use :: (MonadIO m, MonadReader r m, HasSetupConfig r) => Socket -> m ()
+    use :: (MonadIO m) => Socket -> m ()
     use socket = do
-        readyAction
-        session <- view setupConfigSession
-        channel <- view setupConfigChannel
+        liftIO $ readyAction
+        let session = view setupConfigSession setupConf
+        let channel = view setupConfigChannel setupConf
         liftIO $ waitLoop session channel socket
 
 waitLoop :: SessionConfig -> ChannelConfig -> Socket -> IO ()
