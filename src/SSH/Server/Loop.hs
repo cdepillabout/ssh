@@ -5,19 +5,21 @@
 
 module SSH.Server.Loop where
 
-import Control.Concurrent (forkIO)
+import Control.Concurrent.Lifted (fork)
 import Control.Concurrent.Chan (newChan, writeChan)
-import Control.Monad (replicateM)
-import Control.Monad.IO.Class (liftIO)
+import Control.Monad (replicateM, void)
+import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.Trans.Control (MonadBaseControl)
 import Control.Monad.Trans.State (evalStateT, get, gets, modify)
 import qualified Data.ByteString.Lazy as LBS
 import Data.Digest.Pure.SHA (bytestringDigest, sha1)
 import qualified Data.Map as M
 import Data.List (intercalate)
 import Data.List.Split (splitOn)
-import Network (Socket, accept)
+import Data.Word (Word8)
+import Network (HostName, PortNumber, Socket, accept)
 import OpenSSL.BN (randIntegerOneToNMinusOne, modexp)
-import System.IO (hFlush, hGetLine, hIsEOF, hPutStr, hSetBinaryMode)
+import System.IO (Handle, hFlush, hGetLine, hIsEOF, hPutStr, hSetBinaryMode)
 import System.Random (randomRIO)
 
 import SSH.Channel
@@ -30,49 +32,76 @@ import SSH.Session
 import SSH.Supported
 import SSH.Internal.Util
 
-waitLoop :: SessionConfig -> ChannelConfig -> Socket -> IO ()
-waitLoop sc cc s = do
-    (handle, hostName, port) <- accept s
-
-    liftIO $ hSetBinaryMode handle True
-
+waitLoop :: (MonadIO m, MonadBaseControl IO m)
+         => SessionConfig
+         -> ChannelConfig
+         -> Socket
+         -> m ()
+waitLoop sessionConf channelConf socket = do
+    (handle, hostName, port) <- acceptBinaryMode socket
     dump ("got connection from", hostName, port)
+    void . fork $ handleConnection sessionConf channelConf handle
+    waitLoop sessionConf channelConf socket
 
-    _ <- forkIO $ do
-        -- send SSH server version
-        hPutStr handle (version ++ "\r\n")
-        hFlush handle
+-- | Call 'accept' and set the resulting 'Handle's binary mode to 'True'
+-- using 'hSetBinaryMode'.
+acceptBinaryMode :: (MonadIO m) => Socket -> m (Handle, HostName, PortNumber)
+acceptBinaryMode socket = do
+    (handle, hostName, port) <- liftIO $ accept socket
+    liftIO $ hSetBinaryMode handle True
+    return (handle, hostName, port)
 
-        done <- hIsEOF handle
-        if done
-            then return ()
-            else do
+-- | Print the ssh 'version' to a 'Handle'.
+sendSSHVersion :: (MonadIO m) => Handle -> m ()
+sendSSHVersion handle = do
+    liftIO $ hPutStr handle (version ++ "\r\n")
+    liftIO $ hFlush handle
 
-                -- get the version response
-                theirVersion <- hGetLine handle >>= return . takeWhile (/= '\r')
+-- | Read in the client's ssh version from a 'Handle'.
+getSSHVersion :: (MonadIO m) => Handle -> m String
+getSSHVersion handle = do
+    versionLine <- liftIO $ hGetLine handle
+    return $ takeWhile (/= '\r') versionLine
 
-                cookie <- fmap (LBS.pack . map fromIntegral) $
-                    replicateM 16 (randomRIO (0, 255 :: Int))
+-- | Create a cookie for the key exechange.
+createCookie :: (MonadIO m) => m LBS.ByteString
+createCookie = do
+    randomWord8s <- replicateM 16 $ liftIO $ randomRIO (0, 255 :: Word8)
+    return $ LBS.pack randomWord8s
 
-                let ourKEXInit = doPacket $ pKEXInit cookie
+handleConnection :: (MonadIO m, MonadBaseControl IO m)
+      => SessionConfig
+      -> ChannelConfig
+      -> Handle
+      -> m ()
+handleConnection sessionConf channelConf handle = do
+    -- send SSH server version
+    sendSSHVersion handle
+    -- checking for done here seems kind of weird?
+    done <- liftIO $ hIsEOF handle
+    if done
+        then return ()
+        else do
+            -- get the version response
+            theirVersion <- getSSHVersion handle
+            cookie <- createCookie
+            let ourKEXInit = doPacket $ pKEXInit cookie
 
-                out <- newChan
-                _ <- forkIO (sender out (NoKeys handle 0))
+            out <- liftIO newChan
+            _ <- fork (liftIO . sender out $ NoKeys handle 0)
 
-                evalStateT
-                    (send (Send ourKEXInit) >> readLoop)
-                    (Initial
-                        { ssConfig = sc
-                        , ssChannelConfig = cc
-                        , ssThem = handle
-                        , ssSend = writeChan out
-                        , ssPayload = LBS.empty
-                        , ssTheirVersion = theirVersion
-                        , ssOurKEXInit = ourKEXInit
-                        , ssInSeq = 0
-                        })
-
-    waitLoop sc cc s
+            liftIO $ evalStateT
+                (send (Send ourKEXInit) >> readLoop)
+                (Initial
+                    { ssConfig = sessionConf
+                    , ssChannelConfig = channelConf
+                    , ssThem = handle
+                    , ssSend = writeChan out
+                    , ssPayload = LBS.empty
+                    , ssTheirVersion = theirVersion
+                    , ssOurKEXInit = ourKEXInit
+                    , ssInSeq = 0
+                    })
   where
     -- | This is defined in
     -- <https://tools.ietf.org/html/rfc4253#section-7.1 rfc4253 section
@@ -170,7 +199,7 @@ kexInit = do
     dump ("KEXINIT", theirKEXInit, ocn, icn, omn, imn)
     modify $ \st ->
         case st of
-            Initial c cc h s p cv sk is ->
+            Initial c channelConf h s p cv sk is ->
                 case
                     ( lookup ocn supportedCiphers
                     , lookup icn supportedCiphers
@@ -180,7 +209,7 @@ kexInit = do
                     (Just oc, Just ic, Just om, Just im) ->
                         GotKEXInit
                             { ssConfig = c
-                            , ssChannelConfig = cc
+                            , ssChannelConfig = channelConf
                             , ssThem = h
                             , ssSend = s
                             , ssPayload = p
@@ -246,10 +275,10 @@ kexDHInit = do
 
     modify $ \st ->
         case st of
-            GotKEXInit c cc h s p _ _ is _ _ ic _ im ->
+            GotKEXInit c channelConf h s p _ _ is _ _ ic _ im ->
                 Final
                     { ssConfig = c
-                    , ssChannelConfig = cc
+                    , ssChannelConfig = channelConf
                     , ssChannels = M.empty
                     , ssID = d
                     , ssThem = h

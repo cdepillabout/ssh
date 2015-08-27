@@ -65,10 +65,10 @@ startConfig readyAction setupConf =
     release :: (MonadIO m) => Socket -> m ()
     release = liftIO . sClose
 
-    use :: (MonadIO m) => Socket -> m ()
+    use :: Socket -> m ()
     use socket = do
         liftIO $ readyAction
         let session = view setupConfigSession setupConf
         let channel = view setupConfigChannel setupConf
-        liftIO $ waitLoop session channel socket
+        waitLoop session channel socket
 
