@@ -8,6 +8,7 @@ module SSH.Server.Start where
 import Control.Exception.Lifted (bracket)
 import Control.Lens ((^.), (.~), Lens', lens, view)
 import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.Random (MonadRandom)
 import Control.Monad.Trans.Control (MonadBaseControl)
 import Network (
     PortID(PortNumber), PortNumber, Socket, listenOn, sClose,
@@ -42,7 +43,11 @@ startedMessage portNumber = do
         let portNumberString = show portNumber
         liftIO . putStrLn $ "ssh server listening on port " ++ portNumberString
 
-start :: forall m . (MonadIO m, MonadBaseControl IO m) => SessionConfig -> ChannelConfig -> PortNumber -> m ()
+start :: forall m . (MonadRandom m, MonadIO m, MonadBaseControl IO m)
+      => SessionConfig
+      -> ChannelConfig
+      -> PortNumber
+      -> m ()
 start sessionConf channelConf port =
     let setupConf = createSetupConfig sessionConf channelConf port
     in startConfig readyAction setupConf
@@ -50,7 +55,7 @@ start sessionConf channelConf port =
     readyAction :: IO ()
     readyAction = startedMessage port
 
-startConfig :: forall m . (MonadBaseControl IO m, MonadIO m)
+startConfig :: forall m . (MonadRandom m, MonadBaseControl IO m, MonadIO m)
             => IO ()
             -> SetupConfig
             -> m ()
@@ -59,10 +64,10 @@ startConfig readyAction setupConf =
     -- but bracket seems more future proof
     bracket aquire release use
   where
-    aquire :: (MonadIO m) => m Socket
+    aquire :: m Socket
     aquire = liftIO . listenOn . PortNumber $ view setupConfigPort setupConf
 
-    release :: (MonadIO m) => Socket -> m ()
+    release :: Socket -> m ()
     release = liftIO . sClose
 
     use :: Socket -> m ()

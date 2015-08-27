@@ -82,6 +82,7 @@ library
                   , lens
                   , lifted-base
                   , mtl
+                  , MonadRandom
                   , monad-control
                   , network
                   , process

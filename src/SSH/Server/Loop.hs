@@ -9,6 +9,7 @@ import Control.Concurrent.Lifted (fork)
 import Control.Concurrent.Chan (newChan, writeChan)
 import Control.Monad (replicateM, void)
 import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.Random (MonadRandom, getRandomR)
 import Control.Monad.Trans.Control (MonadBaseControl)
 import Control.Monad.Trans.State (evalStateT, get, gets, modify)
 import qualified Data.ByteString.Lazy as LBS
@@ -32,7 +33,7 @@ import SSH.Session
 import SSH.Supported
 import SSH.Internal.Util
 
-waitLoop :: (MonadIO m, MonadBaseControl IO m)
+waitLoop :: (MonadRandom m, MonadIO m, MonadBaseControl IO m)
          => SessionConfig
          -> ChannelConfig
          -> Socket
@@ -64,12 +65,12 @@ getSSHVersion handle = do
     return $ takeWhile (/= '\r') versionLine
 
 -- | Create a cookie for the key exechange.
-createCookie :: (MonadIO m) => m LBS.ByteString
+createCookie :: (MonadRandom m) => m LBS.ByteString
 createCookie = do
-    randomWord8s <- replicateM 16 $ liftIO $ randomRIO (0, 255 :: Word8)
+    randomWord8s <- replicateM 16 $ getRandomR (0, 255 :: Word8)
     return $ LBS.pack randomWord8s
 
-handleConnection :: (MonadIO m, MonadBaseControl IO m)
+handleConnection :: (MonadRandom m, MonadIO m, MonadBaseControl IO m)
       => SessionConfig
       -> ChannelConfig
       -> Handle
