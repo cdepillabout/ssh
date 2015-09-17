@@ -24,7 +24,6 @@ import Data.Word (Word8)
 import Network (HostName, PortNumber, Socket, accept)
 import OpenSSL.BN (randIntegerOneToNMinusOne, modexp)
 import System.IO (Handle, hFlush, hGetLine, hIsEOF, hPutStr, hSetBinaryMode)
-import System.Random (randomRIO)
 
 import SSH.Channel
 import SSH.Crypto
@@ -78,7 +77,11 @@ createCookie = do
     randomWord8s <- replicateM 16 $ getRandomR (0, 255 :: Word8)
     return $ LBS.pack randomWord8s
 
-handleConnection :: (MonadRandom m, MonadIO m, MonadBaseControl IO m)
+handleConnection :: ( MonadRandom m
+                    , MonadIO m
+                    , MonadBaseControl IO m
+                    , MonadLogger m
+                    )
       => SessionConfig
       -> ChannelConfig
       -> Handle
@@ -97,7 +100,7 @@ handleConnection sessionConf channelConf handle = do
             let ourKEXInit = doPacket $ pKEXInit cookie
 
             out <- liftIO newChan
-            _ <- fork (liftIO . sender out $ NoKeys handle 0)
+            _ <- fork . sender out $ NoKeys handle 0
 
             liftIO $ evalStateT
                 (send (Send ourKEXInit) >> readLoop)

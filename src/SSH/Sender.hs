@@ -1,15 +1,21 @@
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
+
 module SSH.Sender where
 
 import Control.Concurrent.Chan (Chan, readChan)
 import Control.Monad (replicateM)
+import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.Logger (MonadLogger, logDebug)
+import Data.Monoid ((<>))
 import Data.Word (Word32, Word8)
 import System.IO (Handle, hFlush)
 import System.Random (randomRIO)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 
-import SSH.Debug
 import SSH.Crypto (Cipher(..), HMAC(..), encrypt)
+import SSH.Internal.Util (tshow)
 import SSH.Packet (Packet, byte, doPacket, long, raw)
 
 -- | Two possible states that a sender can be in with reguards to keys.
@@ -69,13 +75,14 @@ class Sender a where
 --
 --   This function implements the binary packet protocol described in
 --   <https://tools.ietf.org/html/rfc4253#section-6 rfc4253 section 6>.
-sender :: Chan SenderMessage -> SenderState -> IO ()
+sender :: (MonadIO m, MonadLogger m) => Chan SenderMessage -> SenderState -> m ()
 sender senderMessageChan senderState = do
-    m <- readChan senderMessageChan
+    m <- liftIO $ readChan senderMessageChan
     case m of
         Stop -> return ()
         Prepare cipher key iv hmac -> do
-            dump ("initiating encryption", key, iv)
+            $(logDebug) $ "initiating encryption, key: " <> tshow key
+                       <> ", iv: " <> tshow iv
             let gotKeys = GotKeys { senderThem = senderThem senderState
                                   , senderOutSeq = senderOutSeq senderState
                                   , senderEncrypting = False
@@ -86,18 +93,19 @@ sender senderMessageChan senderState = do
                                   }
             sender senderMessageChan gotKeys
         StartEncrypting -> do
-            dump ("starting encryption")
+            $(logDebug) "starting encryption"
             let encryptingSenderState = senderState { senderEncrypting = True }
             sender senderMessageChan encryptingSenderState
         Send msg -> do
             let paddingLength = fromIntegral $ paddingLen msg senderState
                 rand = randomRIO (0, 255 :: Int)
-            intPad <- replicateM paddingLength rand
+            intPad <- liftIO $ replicateM paddingLength rand
             let pad = LBS.pack . map fromIntegral $ intPad
             let plainPacket = full msg pad senderState
             case senderState of
                 GotKeys handle outSeq True cipher key iv (HMAC _ mac) -> do
-                    dump ("sending encrypted", outSeq, plainPacket)
+                    $(logDebug) $ "sending encrypted, outSeq: " <> tshow outSeq
+                               <> ", packet: " <> tshow plainPacket
                     let (encrypted, newVector) = encrypt cipher key iv plainPacket
                         macPacket = long outSeq >> raw plainPacket
                         messageMac = mac $ doPacket macPacket
@@ -106,18 +114,19 @@ sender senderMessageChan senderState = do
                             { senderOutSeq = outSeq + 1
                             , senderVector = newVector
                             }
-                    LBS.hPut handle fullPacket
-                    hFlush handle
+                    liftIO $ LBS.hPut handle fullPacket
+                    liftIO $ hFlush handle
                     sender senderMessageChan updatedSenderState
                 _ -> do
                     let outSeq = senderOutSeq senderState
                         handle = senderThem senderState
-                    dump ("sending unencrypted", outSeq, plainPacket)
+                    $(logDebug) $ "sending unencrypted, outSeq: " <> tshow outSeq
+                               <> ", packet: " <> tshow plainPacket
                     let updatedSenderState = senderState
                             { senderOutSeq = outSeq + 1
                             }
-                    LBS.hPut handle plainPacket
-                    hFlush handle
+                    liftIO $ LBS.hPut handle plainPacket
+                    liftIO $ hFlush handle
                     sender senderMessageChan updatedSenderState
   where
     -- | Return blocksize needed for a message in 'SenderState'.  If we are
