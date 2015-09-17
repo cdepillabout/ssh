@@ -8,6 +8,7 @@ module SSH.Server.Start where
 import Control.Exception.Lifted (bracket)
 import Control.Lens ((^.), (.~), Lens', lens, view)
 import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.Logger (MonadLogger, runStdoutLoggingT)
 import Control.Monad.Random (MonadRandom)
 import Control.Monad.Trans.Control (MonadBaseControl)
 import Network (
@@ -43,7 +44,15 @@ startedMessage portNumber = do
         let portNumberString = show portNumber
         liftIO . putStrLn $ "ssh server listening on port " ++ portNumberString
 
-start :: forall m . (MonadRandom m, MonadIO m, MonadBaseControl IO m)
+runServer :: SSHServerM a -> IO a
+runServer = runStdoutLoggingT . unSSHServerT
+
+start :: forall m .
+       ( MonadBaseControl IO m
+       , MonadIO m
+       , MonadLogger m
+       , MonadRandom m
+       )
       => SessionConfig
       -> ChannelConfig
       -> PortNumber
@@ -55,7 +64,12 @@ start sessionConf channelConf port =
     readyAction :: IO ()
     readyAction = startedMessage port
 
-startConfig :: forall m . (MonadRandom m, MonadBaseControl IO m, MonadIO m)
+startConfig :: forall m .
+             ( MonadBaseControl IO m
+             , MonadIO m
+             , MonadLogger m
+             , MonadRandom m
+             )
             => IO ()
             -> SetupConfig
             -> m ()

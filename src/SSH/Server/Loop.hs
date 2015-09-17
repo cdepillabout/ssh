@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -9,6 +10,7 @@ import Control.Concurrent.Lifted (fork)
 import Control.Concurrent.Chan (newChan, writeChan)
 import Control.Monad (replicateM, void)
 import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.Logger (MonadLogger, logInfo)
 import Control.Monad.Random (MonadRandom, getRandomR)
 import Control.Monad.Trans.Control (MonadBaseControl)
 import Control.Monad.Trans.State (evalStateT, get, gets, modify)
@@ -17,6 +19,7 @@ import Data.Digest.Pure.SHA (bytestringDigest, sha1)
 import qualified Data.Map as M
 import Data.List (intercalate)
 import Data.List.Split (splitOn)
+import Data.Monoid ((<>))
 import Data.Word (Word8)
 import Network (HostName, PortNumber, Socket, accept)
 import OpenSSL.BN (randIntegerOneToNMinusOne, modexp)
@@ -33,14 +36,19 @@ import SSH.Session
 import SSH.Supported
 import SSH.Internal.Util
 
-waitLoop :: (MonadRandom m, MonadIO m, MonadBaseControl IO m)
+waitLoop :: ( MonadBaseControl IO m
+            , MonadIO m
+            , MonadLogger m
+            , MonadRandom m
+            )
          => SessionConfig
          -> ChannelConfig
          -> Socket
          -> m ()
 waitLoop sessionConf channelConf socket = do
     (handle, hostName, port) <- acceptBinaryMode socket
-    dump ("got connection from", hostName, port)
+    $(logInfo) $ "got connection from " <> tshow hostName
+               <> ", port " <> tshow port
     void . fork $ handleConnection sessionConf channelConf handle
     waitLoop sessionConf channelConf socket
 

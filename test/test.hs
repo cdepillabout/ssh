@@ -10,6 +10,7 @@ import Control.Concurrent (forkIO, killThread)
 import Control.Concurrent.MVar (MVar, newEmptyMVar, takeMVar, putMVar)
 import Control.Exception (bracket, try)
 import Control.Monad (when)
+import Control.Monad.Logger (runStdoutLoggingT)
 import Data.ByteString.Char8 (pack)
 import System.Directory (createDirectoryIfMissing, removeFile)
 import System.IO (hPutStr, openTempFile, hClose)
@@ -45,7 +46,8 @@ withOneUserServer :: KeyPair -> PublicKey -> TestTree -> TestTree
 withOneUserServer hostKp acceptedKey test =
     withResource
         (do startedSignal <- newEmptyMVar
-            tid <- forkIO $ SSH.startConfig (readyAction startedSignal) config
+            tid <-
+                forkIO . SSH.runServer $ SSH.startConfig (readyAction startedSignal) config
             takeMVar startedSignal
             return tid
         )

@@ -17,6 +17,8 @@ module SSH.Internal.Util where
 import Data.Word (Word8)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
+import Data.Text (Text)
+import qualified Data.Text as Text
 
 import GHC.Base (Int(I#))
 import GHC.Integer.Logarithms (integerLog2#)
@@ -183,3 +185,9 @@ toBlocks bs m = b : rest
 -- "hello my name is SPJ"
 fromBlocks :: [LBS.ByteString] -> LBS.ByteString
 fromBlocks = LBS.concat
+
+-- | Like 'show' but outputs 'Text'.
+tshow :: Show a => a -> Text
+tshow = Text.pack . show
+
+-- | Instance for MonadRandom
